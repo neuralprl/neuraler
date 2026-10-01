@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { supabase, configOk } from './supabaseClient'
 import Login from './Login'
+import ImportarDatos from './ImportarDatos'
+
+const SECCIONES = [
+  { id: 'centros', texto: 'Centros' },
+  { id: 'importar', texto: 'Importar datos' },
+]
 
 export default function App() {
   const [sesion, setSesion] = useState(null)
   const [listo, setListo] = useState(false)
+  const [seccion, setSeccion] = useState('centros')
 
   useEffect(() => {
     if (!configOk) { setListo(true); return }
@@ -40,12 +47,31 @@ export default function App() {
         </button>
       </header>
 
+      <nav style={{ display: 'flex', gap: 8, padding: '10px 16px', flexWrap: 'wrap' }}>
+        {SECCIONES.map((s) => (
+          <button
+            key={s.id}
+            className="secundario"
+            onClick={() => setSeccion(s.id)}
+            aria-current={seccion === s.id ? 'page' : undefined}
+            style={seccion === s.id ? { fontWeight: 700, textDecoration: 'underline' } : undefined}
+          >
+            {s.texto}
+          </button>
+        ))}
+      </nav>
+
       <main className="contenido">
-        <h2>Centros</h2>
-        <p className="vacio">
-          Conexión correcta. Aquí irá la lista de centros con el alta manual y la
-          importación desde Excel.
-        </p>
+        {seccion === 'centros' && (
+          <>
+            <h2>Centros</h2>
+            <p className="vacio">
+              Conexión correcta. Aquí irá la lista de centros con el alta manual y la
+              importación desde Excel.
+            </p>
+          </>
+        )}
+        {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
       </main>
     </div>
   )
