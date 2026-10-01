@@ -6,7 +6,13 @@ import { CAMPOS_BOOL, ETIQUETAS, OPCIONES, centroVacio } from './centrosLogic'
 // Lista de centros con búsqueda, alta/edición manual (incluye sus puestos) e importación desde Excel.
 
 const rejilla = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }
-const campo = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }
+const campo = { display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, fontSize: 14, textAlign: 'left' }
+// Fila con el texto a la izquierda y la casilla a la derecha
+const filaCheck = {
+  display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  gap: 12, width: '100%', textAlign: 'left', fontSize: 14, cursor: 'pointer',
+}
+const casilla = { width: 'auto', flex: 'none', margin: 0 }
 
 function resumenUsuarios(c) {
   const t = []
@@ -37,6 +43,10 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     return base
   })
   const [sel, setSel] = useState({}) // puesto_id -> { n_trabajadores, turnos }
+  const [lista, setLista] = useState(puestos)
+  const [nuevoPuesto, setNuevoPuesto] = useState('')
+  const [errorPuesto, setErrorPuesto] = useState('')
+  const [anadiendo, setAnadiendo] = useState(false)
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -117,6 +127,22 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     }
   }
 
+  async function anadirPuesto() {
+    setErrorPuesto('')
+    const nombre = nuevoPuesto.replace(/\s+/g, ' ').trim()
+    if (!nombre) return
+    if (nombre.toUpperCase() === 'TODOS') { setErrorPuesto('TODOS es un nombre reservado.'); return }
+    const igual = lista.find((p) => p.nombre.toLowerCase() === nombre.toLowerCase())
+    if (igual) { setErrorPuesto(`Ya existe el puesto "${igual.nombre}".`); return }
+    setAnadiendo(true)
+    const { data, error: err } = await supabase.from('puestos').insert({ nombre }).select('id,nombre').single()
+    setAnadiendo(false)
+    if (err) { setErrorPuesto(err.code === '23505' ? 'Ya existe un puesto con ese nombre.' : err.message); return }
+    setLista((l) => [...l, data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+    setSel((x) => ({ ...x, [data.id]: { n_trabajadores: '', turnos: '' } }))
+    setNuevoPuesto('')
+  }
+
   async function borrar() {
     if (!window.confirm(`¿Borrar el centro ${f.nombre}? Esta acción no se puede deshacer.`)) return
     const { error: err } = await supabase.from('centros').delete().eq('id', centro.id)
@@ -163,9 +189,9 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       <h3>Usuarios que atiende</h3>
       <div style={rejilla}>
         {CAMPOS_BOOL.slice(0, 3).map(([k, etiqueta]) => (
-          <label key={k} style={{ ...campo, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={f[k]} onChange={(e) => cambia(k, e.target.checked)} />
+          <label key={k} style={{ ...filaCheck, padding: '4px 0', borderBottom: '1px solid #e5e5e5' }}>
             <span>{etiqueta}</span>
+            <input type="checkbox" style={casilla} checked={f[k]} onChange={(e) => cambia(k, e.target.checked)} />
           </label>
         ))}
       </div>
@@ -182,9 +208,9 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       <h3>Instalaciones y medios</h3>
       <div style={rejilla}>
         {CAMPOS_BOOL.slice(3).map(([k, etiqueta]) => (
-          <label key={k} style={{ ...campo, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={f[k]} onChange={(e) => cambia(k, e.target.checked)} />
+          <label key={k} style={{ ...filaCheck, padding: '4px 0', borderBottom: '1px solid #e5e5e5' }}>
             <span>{etiqueta}</span>
+            <input type="checkbox" style={casilla} checked={f[k]} onChange={(e) => cambia(k, e.target.checked)} />
           </label>
         ))}
       </div>
@@ -195,36 +221,51 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       </label>
 
       <h3>Puestos de este centro</h3>
-      {puestos.length === 0 && <p className="vacio">Aún no hay puestos: importa primero la matriz.</p>}
-      <div style={{ display: 'grid', gap: 6 }}>
-        {puestos.map((p) => {
+      {lista.length === 0 && <p className="vacio">Aún no hay puestos: añade uno o importa la matriz.</p>}
+      <div style={{ maxWidth: 560 }}>
+        {lista.map((p) => {
           const marcado = !!sel[p.id]
           return (
-            <div key={p.id} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ minWidth: 240, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input type="checkbox" checked={marcado} onChange={(e) => marcarPuesto(p.id, e.target.checked)} />
-                {p.nombre}
+            <div key={p.id} style={{ borderBottom: '1px solid #e5e5e5', padding: '6px 0', textAlign: 'left' }}>
+              <label style={filaCheck}>
+                <span>{p.nombre}</span>
+                <input type="checkbox" style={casilla} checked={marcado} onChange={(e) => marcarPuesto(p.id, e.target.checked)} />
               </label>
               {marcado && (
-                <>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '8px 0 2px' }}>
                   <input
-                    type="number" min={0} placeholder="Nº trabajadores" style={{ width: 130 }}
+                    type="number" min={0} placeholder="Nº trabajadores" style={{ width: 140 }}
                     value={sel[p.id].n_trabajadores}
-                    onChange={(e) => setSel((s) => ({ ...s, [p.id]: { ...s[p.id], n_trabajadores: e.target.value } }))}
+                    onChange={(e) => setSel((x) => ({ ...x, [p.id]: { ...x[p.id], n_trabajadores: e.target.value } }))}
                   />
                   <select
                     value={sel[p.id].turnos}
-                    onChange={(e) => setSel((s) => ({ ...s, [p.id]: { ...s[p.id], turnos: e.target.value } }))}
+                    onChange={(e) => setSel((x) => ({ ...x, [p.id]: { ...x[p.id], turnos: e.target.value } }))}
                   >
                     <option value="">Turnos</option>
                     {OPCIONES.turnos.map((o) => <option key={o} value={o}>{ETIQUETAS.turnos[o]}</option>)}
                   </select>
-                </>
+                </div>
               )}
             </div>
           )
         })}
       </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, maxWidth: 560 }}>
+        <input
+          placeholder="Nombre del nuevo puesto" value={nuevoPuesto} style={{ flex: 1, minWidth: 200 }}
+          onChange={(e) => setNuevoPuesto(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); anadirPuesto() } }}
+        />
+        <button type="button" className="secundario" onClick={anadirPuesto} disabled={anadiendo}>
+          {anadiendo ? 'Añadiendo...' : 'Añadir puesto'}
+        </button>
+      </div>
+      {errorPuesto && <p style={{ color: '#b00020' }}>{errorPuesto}</p>}
+      <p style={{ opacity: 0.7, fontSize: 13, maxWidth: 560 }}>
+        Un puesto nuevo no tiene riesgos asociados hasta que se cree con el creador de puestos, al evaluarlo.
+      </p>
 
       {error && (
         <p style={{ color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }}>{error}</p>
