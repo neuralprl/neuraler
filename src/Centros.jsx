@@ -42,7 +42,10 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     })
     return base
   })
-  const [sel, setSel] = useState({}) // puesto_id -> { n_trabajadores, turnos }
+  // puesto_id -> { n_trabajadores, turnos }. En un centro nuevo vienen todos marcados.
+  const [sel, setSel] = useState(() => (
+    nuevo ? Object.fromEntries(puestos.map((p) => [p.id, { n_trabajadores: '', turnos: '' }])) : {}
+  ))
   const [listaPuestos, setListaPuestos] = useState(puestos)
   const [nuevoPuesto, setNuevoPuesto] = useState('')
   const [errorPuesto, setErrorPuesto] = useState('')
@@ -221,6 +224,11 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       </label>
 
       <h3>Puestos de este centro</h3>
+      {nuevo && listaPuestos.length > 0 && (
+        <p style={{ opacity: 0.7, fontSize: 13, maxWidth: 380 }}>
+          Vienen todos marcados: desmarca los que no existan en este centro.
+        </p>
+      )}
       {listaPuestos.length === 0 && <p className="vacio">Aún no hay puestos: añade uno o importa la matriz.</p>}
       <div style={{ maxWidth: 380 }}>
         {listaPuestos.map((p) => {
