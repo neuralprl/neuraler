@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase, configOk } from './supabaseClient'
 import Login from './Login'
 import Centros from './Centros'
+import Evaluaciones from './Evaluaciones'
 import ImportarDatos from './ImportarDatos'
 
 const SECCIONES = [
+  { id: 'evaluaciones', texto: 'Evaluaciones' },
   { id: 'centros', texto: 'Centros' },
   { id: 'importar', texto: 'Importar datos' },
 ]
@@ -12,7 +14,7 @@ const SECCIONES = [
 export default function App() {
   const [sesion, setSesion] = useState(null)
   const [listo, setListo] = useState(false)
-  const [seccion, setSeccion] = useState('centros')
+  const [seccion, setSeccion] = useState('evaluaciones')
 
   useEffect(() => {
     if (!configOk) { setListo(true); return }
@@ -63,6 +65,7 @@ export default function App() {
       </nav>
 
       <main className="contenido">
+        {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} />}
         {seccion === 'centros' && <Centros supabase={supabase} />}
         {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
       </main>
