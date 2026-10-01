@@ -186,7 +186,7 @@ export function prepararCentros({ centros = [], centroPuestos = [] }, { puestosB
     const k = `${codigo}|${nombrePuesto}`
     if (vistos.has(k)) { avisos.push(`centro_puestos, fila ${fila}: ${nombrePuesto} repetido en ${codigo}; se usa la primera fila`); return }
     vistos.add(k)
-    cp.push({ codigo, puesto: nombrePuesto, n_trabajadores: n.valor ?? null, turnos: t.valor ?? null })
+    cp.push({ codigo, puesto: nombrePuesto, n_trabajadores: n.valor ?? null, turnos: t.valor ?? 'rotativo' })
   })
 
   if (ejemplos > 0) {

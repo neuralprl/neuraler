@@ -44,7 +44,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
   })
   // puesto_id -> { n_trabajadores, turnos }. En un centro nuevo vienen todos marcados.
   const [sel, setSel] = useState(() => (
-    nuevo ? Object.fromEntries(puestos.map((p) => [p.id, { n_trabajadores: '', turnos: '' }])) : {}
+    nuevo ? Object.fromEntries(puestos.map((p) => [p.id, { n_trabajadores: '', turnos: 'rotativo' }])) : {}
   ))
   const [listaPuestos, setListaPuestos] = useState(puestos)
   const [nuevoPuesto, setNuevoPuesto] = useState('')
@@ -59,7 +59,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       .then(({ data, error: err }) => {
         if (err) { setError(err.message); return }
         const m = {}
-        data.forEach((r) => { m[r.puesto_id] = { n_trabajadores: aTexto(r.n_trabajadores), turnos: aTexto(r.turnos) } })
+        data.forEach((r) => { m[r.puesto_id] = { n_trabajadores: aTexto(r.n_trabajadores), turnos: aTexto(r.turnos) || 'rotativo' } })
         setSel(m)
       })
   }, [supabase, centro, nuevo])
@@ -69,7 +69,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
   function marcarPuesto(id, marcado) {
     setSel((s) => {
       const n = { ...s }
-      if (marcado) n[id] = { n_trabajadores: '', turnos: '' }
+      if (marcado) n[id] = { n_trabajadores: '', turnos: 'rotativo' }
       else delete n[id]
       return n
     })
@@ -142,7 +142,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     setAnadiendo(false)
     if (err) { setErrorPuesto(err.code === '23505' ? 'Ya existe un puesto con ese nombre.' : err.message); return }
     setListaPuestos((l) => [...l, data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
-    setSel((x) => ({ ...x, [data.id]: { n_trabajadores: '', turnos: '' } }))
+    setSel((x) => ({ ...x, [data.id]: { n_trabajadores: '', turnos: 'rotativo' } }))
     setNuevoPuesto('')
   }
 
