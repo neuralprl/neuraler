@@ -1,0 +1,80 @@
+:root {
+  --fondo: #EDF1F0;
+  --superficie: #FFFFFF;
+  --tinta: #1D2B33;
+  --tinta-suave: #5A6A72;
+  --petroleo: #2F5D62;
+  --petroleo-oscuro: #234649;
+  --senal: #E3A600;
+  --error: #B3261E;
+  --borde: #CBD5D3;
+  font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--tinta);
+  background: var(--fondo);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+h1, h2 { margin: 0; letter-spacing: -0.01em; }
+
+button {
+  font: inherit; font-weight: 600;
+  padding: 0.7rem 1.2rem;
+  border: none; border-radius: 6px;
+  background: var(--petroleo); color: #fff;
+  cursor: pointer;
+}
+button:hover { background: var(--petroleo-oscuro); }
+button:disabled { opacity: 0.6; cursor: wait; }
+button.secundario {
+  background: transparent; color: var(--petroleo);
+  border: 1px solid var(--borde); padding: 0.45rem 0.9rem;
+}
+button.secundario:hover { background: var(--fondo); }
+:focus-visible { outline: 3px solid var(--senal); outline-offset: 2px; }
+
+/* Franja de señalización, el único elemento decorativo */
+.franja {
+  display: block; width: 44px; height: 8px; border-radius: 2px;
+  background: repeating-linear-gradient(-45deg, var(--senal) 0 8px, var(--tinta) 8px 16px);
+}
+
+/* Login */
+.login {
+  min-height: 100vh;
+  display: grid; grid-template-columns: 1fr 1fr;
+}
+.login-marca {
+  background: var(--petroleo); color: #fff;
+  padding: 4rem; display: flex; flex-direction: column; justify-content: flex-end; gap: 1rem;
+}
+.login-marca h1 { font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; max-width: 12ch; }
+.login-marca p { margin: 0; opacity: 0.85; max-width: 36ch; line-height: 1.5; }
+.login-form {
+  align-self: center; justify-self: center;
+  width: min(360px, 90%);
+  display: flex; flex-direction: column; gap: 1.1rem;
+}
+label { display: flex; flex-direction: column; gap: 0.35rem; font-weight: 500; font-size: 0.95rem; }
+input {
+  font: inherit; padding: 0.7rem 0.8rem;
+  border: 1px solid var(--borde); border-radius: 6px; background: var(--superficie);
+}
+.error { color: var(--error); margin: 0; font-size: 0.92rem; }
+
+/* App */
+.cabecera {
+  display: flex; align-items: center; gap: 0.9rem;
+  padding: 0.9rem 1.5rem; background: var(--superficie); border-bottom: 1px solid var(--borde);
+}
+.cabecera .usuario { margin-left: auto; color: var(--tinta-suave); font-size: 0.9rem; }
+.contenido { padding: 2rem 1.5rem; max-width: 1100px; margin: 0 auto; }
+.vacio { color: var(--tinta-suave); line-height: 1.5; max-width: 60ch; }
+.aviso { padding: 3rem 1.5rem; max-width: 60ch; margin: 0 auto; line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .login { grid-template-columns: 1fr; }
+  .login-marca { padding: 2.5rem 1.5rem; }
+  .login-form { padding: 2.5rem 0; }
+  .cabecera .usuario { display: none; }
+}
