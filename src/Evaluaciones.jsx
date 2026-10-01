@@ -94,9 +94,28 @@ function NuevaEvaluacion({ supabase, onContinuar, onVolver, trabajando }) {
         <span>Centro</span>
         <input style={ancho} placeholder="Buscar por código o nombre" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
       </label>
-      <select size={6} style={{ ...ancho, marginTop: 6 }} value={centroId} onChange={(e) => setCentroId(e.target.value)}>
-        {centrosVisibles.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nombre}</option>)}
-      </select>
+      <div
+        role="listbox" aria-label="Centros"
+        style={{ ...ancho, marginTop: 6, maxHeight: 220, overflowY: 'auto', border: '1px solid #bbb', borderRadius: 6, background: '#fff' }}
+      >
+        {centrosVisibles.length === 0 && <div style={{ padding: 8, opacity: 0.7 }}>Ningún centro coincide.</div>}
+        {centrosVisibles.map((c) => {
+          const activo = c.id === centroId
+          return (
+            <div
+              key={c.id} role="option" aria-selected={activo} tabIndex={0}
+              onClick={() => setCentroId(c.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCentroId(c.id) } }}
+              style={{
+                padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
+                background: activo ? '#cfe0e0' : 'transparent', fontWeight: activo ? 700 : 400,
+              }}
+            >
+              {c.codigo} · {c.nombre}
+            </div>
+          )
+        })}
+      </div>
 
       {centroId && (
         <>
