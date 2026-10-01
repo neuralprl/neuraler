@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, configOk } from './supabaseClient'
 import Login from './Login'
+import Centros from './Centros'
 import ImportarDatos from './ImportarDatos'
 
 const SECCIONES = [
@@ -62,15 +63,7 @@ export default function App() {
       </nav>
 
       <main className="contenido">
-        {seccion === 'centros' && (
-          <>
-            <h2>Centros</h2>
-            <p className="vacio">
-              Conexión correcta. Aquí irá la lista de centros con el alta manual y la
-              importación desde Excel.
-            </p>
-          </>
-        )}
+        {seccion === 'centros' && <Centros supabase={supabase} />}
         {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
       </main>
     </div>
