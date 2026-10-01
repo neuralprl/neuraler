@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import {
   COLOR_VR, ETIQUETA_VR, ORIGEN_TEXTO, ORDEN_VR, nuevoId, resumenER, siguienteIdMedida, vrDe,
 } from './evalLogic'
+import { descargar, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
 
 // Evaluación de riesgos (ER): tabla principal editable.
 // Props: supabase, evaluacion {id, fecha, estado, centro, puesto}, filasIniciales, catalogo, riesgos, onVolver
@@ -32,7 +33,7 @@ function InsigniaVR({ p, c }) {
   )
 }
 
-export default function EvaluacionER({ supabase, evaluacion, filasIniciales, catalogo, riesgos, onVolver }) {
+export default function EvaluacionER({ supabase, evaluacion, filasIniciales, catalogo, riesgos, onVolver, onPlan }) {
   const [filas, setFilas] = useState(filasIniciales)
   const [estado, setEstado] = useState(evaluacion.estado)
   const [sucio, setSucio] = useState(false)
@@ -178,6 +179,27 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
     onVolver()
   }
 
+  function abrirPlan() {
+    setError('')
+    if (sucio) { setError('Guarda los cambios antes de abrir el plan de acción.'); return }
+    onPlan(filas, estado)
+  }
+
+  async function descargarIR() {
+    setError('')
+    try {
+      const blob = await wordIR(evaluacion, filas)
+      descargar(blob, nombreArchivo('IR', evaluacion, 'docx'))
+    } catch (err) {
+      setError('No se pudo generar el Word: ' + err.message)
+    }
+  }
+
+  function verIR() {
+    setError('')
+    try { imprimir(htmlIR(evaluacion, filas)) } catch (err) { setError(err.message) }
+  }
+
   return (
     <div style={{ textAlign: 'left' }}>
       <h2>Evaluación de riesgos</h2>
@@ -220,6 +242,13 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
             {Object.keys(ORDEN_VR).map((k) => <option key={k} value={k}>{k} · {ETIQUETA_VR[k]}</option>)}
           </select>
         </label>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <b>Documentos:</b>
+        <button className="secundario" onClick={abrirPlan}>Plan de acción (PAP)</button>
+        <button className="secundario" onClick={descargarIR}>Información de riesgos · Word</button>
+        <button className="secundario" onClick={verIR}>Información de riesgos · PDF</button>
       </div>
 
       {sucio && <p style={{ color: '#8a6d00' }}>Hay cambios sin guardar.</p>}

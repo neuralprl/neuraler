@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import EvaluacionER from './EvaluacionER'
+import PlanPreventivo from './PlanPreventivo'
 import {
   armarFilasER, filaDesdeMatriz, filasDeCheck, fusionarFilas, nuevoId, ordenarFilas,
 } from './evalLogic'
@@ -177,7 +178,7 @@ function CreadorPuesto({ supabase, puesto, onCreado, onCancelar }) {
   }
 
   return (
-    <div style={{ maxWidth: 560, textAlign: 'left' }}>
+    <div style={{ maxWidth: 420, textAlign: 'left' }}>
       <h2>Creador de puesto</h2>
       <p style={{ opacity: 0.7 }}>Paso 1 de 3 · El puesto no está en la matriz</p>
       <p>
@@ -299,7 +300,7 @@ function PasoCheck({ ctx, onContinuar, onVolver, trabajando }) {
 
 // ---------------------------------------------------------------------
 export default function Evaluaciones({ supabase }) {
-  const [vista, setVista] = useState('lista') // lista | nueva | creador | check | er
+  const [vista, setVista] = useState('lista') // lista | nueva | creador | check | er | pap
   const [lista, setLista] = useState([])
   const [cargandoLista, setCargandoLista] = useState(true)
   const [ctx, setCtx] = useState(null)
@@ -440,8 +441,15 @@ export default function Evaluaciones({ supabase }) {
       <EvaluacionER
         supabase={supabase} evaluacion={er.evaluacion} filasIniciales={er.filas}
         catalogo={er.catalogo} riesgos={er.riesgos} onVolver={aLista}
+        onPlan={(filas, estado) => {
+          setEr((e) => ({ ...e, filas, evaluacion: { ...e.evaluacion, estado } }))
+          setVista('pap')
+        }}
       />
     )
+  }
+  if (vista === 'pap') {
+    return <PlanPreventivo supabase={supabase} evaluacion={er.evaluacion} onVolver={() => setVista('er')} />
   }
 
   return (

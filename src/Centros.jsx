@@ -222,11 +222,11 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
 
       <h3>Puestos de este centro</h3>
       {listaPuestos.length === 0 && <p className="vacio">Aún no hay puestos: añade uno o importa la matriz.</p>}
-      <div style={{ maxWidth: 560 }}>
+      <div style={{ maxWidth: 380 }}>
         {listaPuestos.map((p) => {
           const marcado = !!sel[p.id]
           return (
-            <div key={p.id} style={{ borderBottom: '1px solid #e5e5e5', padding: '6px 0', textAlign: 'left' }}>
+            <div key={p.id} style={{ borderBottom: '1px solid #e5e5e5', padding: '3px 0', textAlign: 'left' }}>
               <label style={filaCheck}>
                 <span>{p.nombre}</span>
                 <input type="checkbox" style={casilla} checked={marcado} onChange={(e) => marcarPuesto(p.id, e.target.checked)} />
@@ -252,7 +252,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
         })}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, maxWidth: 560 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, maxWidth: 380 }}>
         <input
           placeholder="Nombre del nuevo puesto" value={nuevoPuesto} style={{ flex: 1, minWidth: 200 }}
           onChange={(e) => setNuevoPuesto(e.target.value)}
@@ -263,7 +263,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
         </button>
       </div>
       {errorPuesto && <p style={{ color: '#b00020' }}>{errorPuesto}</p>}
-      <p style={{ opacity: 0.7, fontSize: 13, maxWidth: 560 }}>
+      <p style={{ opacity: 0.7, fontSize: 13, maxWidth: 380 }}>
         Un puesto nuevo no tiene riesgos asociados hasta que se cree con el creador de puestos, al evaluarlo.
       </p>
 
