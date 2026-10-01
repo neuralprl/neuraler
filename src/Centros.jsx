@@ -43,7 +43,7 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     return base
   })
   const [sel, setSel] = useState({}) // puesto_id -> { n_trabajadores, turnos }
-  const [lista, setLista] = useState(puestos)
+  const [listaPuestos, setListaPuestos] = useState(puestos)
   const [nuevoPuesto, setNuevoPuesto] = useState('')
   const [errorPuesto, setErrorPuesto] = useState('')
   const [anadiendo, setAnadiendo] = useState(false)
@@ -132,13 +132,13 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
     const nombre = nuevoPuesto.replace(/\s+/g, ' ').trim()
     if (!nombre) return
     if (nombre.toUpperCase() === 'TODOS') { setErrorPuesto('TODOS es un nombre reservado.'); return }
-    const igual = lista.find((p) => p.nombre.toLowerCase() === nombre.toLowerCase())
+    const igual = listaPuestos.find((p) => p.nombre.toLowerCase() === nombre.toLowerCase())
     if (igual) { setErrorPuesto(`Ya existe el puesto "${igual.nombre}".`); return }
     setAnadiendo(true)
     const { data, error: err } = await supabase.from('puestos').insert({ nombre }).select('id,nombre').single()
     setAnadiendo(false)
     if (err) { setErrorPuesto(err.code === '23505' ? 'Ya existe un puesto con ese nombre.' : err.message); return }
-    setLista((l) => [...l, data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+    setListaPuestos((l) => [...l, data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
     setSel((x) => ({ ...x, [data.id]: { n_trabajadores: '', turnos: '' } }))
     setNuevoPuesto('')
   }
@@ -221,9 +221,9 @@ function FormCentro({ supabase, centro, puestos, onVolver, onGuardado }) {
       </label>
 
       <h3>Puestos de este centro</h3>
-      {lista.length === 0 && <p className="vacio">Aún no hay puestos: añade uno o importa la matriz.</p>}
+      {listaPuestos.length === 0 && <p className="vacio">Aún no hay puestos: añade uno o importa la matriz.</p>}
       <div style={{ maxWidth: 560 }}>
-        {lista.map((p) => {
+        {listaPuestos.map((p) => {
           const marcado = !!sel[p.id]
           return (
             <div key={p.id} style={{ borderBottom: '1px solid #e5e5e5', padding: '6px 0', textAlign: 'left' }}>
