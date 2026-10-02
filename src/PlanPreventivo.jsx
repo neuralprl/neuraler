@@ -1,15 +1,148 @@
 import { useEffect, useMemo, useState } from 'react'
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic'
+import { PRIORIDADES, descargar, excelPAP, filasPAP, htmlPAP, imprimir, nombreArchivo } from './documentos'
 import {
-  ESTADOS_ACCION, PRIORIDADES, descargar, excelPAP, filasPAP, htmlPAP, imprimir, nombreArchivo,
-} from './documentos'
+  COSTE_POR_DEFECTO, PLAZO_POR_VR, RESPONSABLES, RESPONSABLE_DEFECTO,
+  fechaES, formatearCoste, hoyISO, limiteEficacia, plazoPorDefecto,
+} from './planLogic'
 
-// Plan de acción preventiva (PAP): los riesgos de la evaluación agrupados por prioridad,
-// con responsable, plazo y estado de cada acción. Se guarda en la propia evaluación.
+// Plan de acción preventiva (PAP): los riesgos de la evaluación agrupados por prioridad, con
+// responsable, coste, plazo, ejecución y comprobación de la eficacia de cada acción.
 // Props: supabase, evaluacion {id, fecha, estado, centro, puesto}, onVolver
 
 const campo = { display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, fontSize: 14, textAlign: 'left' }
-const COLUMNAS = 'id,evaluacion_id,riesgo_id,riesgo_nombre,condicion,p,c,medidas,origen,responsable,plazo,estado_accion'
+const ancho = { width: '100%', boxSizing: 'border-box' }
+const rejilla = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, alignItems: 'start' }
+const COLUMNAS =
+  'id,evaluacion_id,riesgo_id,riesgo_nombre,condicion,p,c,medidas,origen,responsable,coste,plazo,' +
+  'estado_accion,fecha_realizacion,eficacia_estado,fecha_eficacia'
+
+function Interruptor({ activo, onChange, etiqueta }) {
+  return (
+    <button
+      type="button" role="switch" aria-checked={activo} aria-label={etiqueta} onClick={() => onChange(!activo)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 10, background: 'none', border: 'none',
+        padding: '4px 0', margin: 0, cursor: 'pointer', font: 'inherit', color: 'inherit', boxShadow: 'none',
+      }}
+    >
+      <span style={{ position: 'relative', width: 46, height: 26, borderRadius: 13, flex: 'none',
+        background: activo ? '#2e7d32' : '#9e9e9e', transition: 'background .15s' }}>
+        <span style={{ position: 'absolute', top: 3, left: activo ? 23 : 3, width: 20, height: 20,
+          borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+      </span>
+      <span style={{ fontWeight: 600 }}>{activo ? 'Realizada' : 'Pendiente'}</span>
+    </button>
+  )
+}
+
+function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
+  const plazoEstandar = PLAZO_POR_VR[f.vr]?.etiqueta
+  const hecha = f.estado_accion === 'realizada'
+  const comprobada = f.eficacia_estado === 'realizada'
+  const limite = limiteEficacia(fechaEval)
+  const esEstandar = RESPONSABLES.includes(f.responsable)
+  const plazoVencido = !hecha && f.plazo && f.plazo < hoy
+  const eficaciaVencida = hecha && !comprobada && limite && limite < hoy
+
+  return (
+    <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: 12, marginBottom: 10, textAlign: 'left' }}>
+      <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
+      <p style={{ margin: '4px 0' }}>{f.condicion}</p>
+      {f.medidas.length > 0 && (
+        <ul style={{ margin: '4px 0 10px 18px', padding: 0 }}>
+          {f.medidas.map((m, i) => <li key={i}>{m}</li>)}
+        </ul>
+      )}
+
+      <div style={rejilla}>
+        <div style={campo}>
+          <label style={campo}>
+            <span>Responsable</span>
+            <select
+              style={ancho} value={esEstandar ? f.responsable : 'otro'}
+              onChange={(e) => onCambio(f.id, { responsable: e.target.value === 'otro' ? '' : e.target.value })}
+            >
+              {RESPONSABLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              <option value="otro">Otro...</option>
+            </select>
+          </label>
+          {!esEstandar && (
+            <input
+              style={ancho} placeholder="Indica quién" value={f.responsable ?? ''}
+              onChange={(e) => onCambio(f.id, { responsable: e.target.value })}
+            />
+          )}
+        </div>
+
+        <label style={campo}>
+          <span>Coste de la medida</span>
+          <input
+            style={ancho} value={f.coste ?? ''}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => onCambio(f.id, { coste: e.target.value })}
+            onBlur={() => {
+              const nuevo = formatearCoste(f.coste)
+              if (nuevo !== f.coste) onCambio(f.id, { coste: nuevo })
+            }}
+          />
+          <small style={{ opacity: 0.65 }}>Escribe una cifra y saldrá con €</small>
+        </label>
+
+        <label style={campo}>
+          <span>Plazo</span>
+          <input type="date" style={ancho} value={f.plazo ?? ''} onChange={(e) => onCambio(f.id, { plazo: e.target.value })} />
+          <small style={{ color: plazoVencido ? '#c62828' : undefined, opacity: plazoVencido ? 1 : 0.65, fontWeight: plazoVencido ? 700 : 400 }}>
+            {plazoVencido ? 'Plazo vencido · ' : ''}Estándar de esta prioridad: {plazoEstandar}
+          </small>
+        </label>
+
+        <div style={campo}>
+          <span>Estado de la acción</span>
+          <Interruptor
+            activo={hecha} etiqueta="Acción realizada"
+            onChange={(on) => onCambio(f.id, on
+              ? { estado_accion: 'realizada', fecha_realizacion: hoy }
+              : { estado_accion: 'pendiente', fecha_realizacion: null, eficacia_estado: 'pendiente', fecha_eficacia: null })}
+          />
+          {hecha && (
+            <label style={campo}>
+              <span>Fecha de realización</span>
+              <input type="date" style={ancho} value={f.fecha_realizacion ?? ''}
+                onChange={(e) => onCambio(f.id, { fecha_realizacion: e.target.value || null })} />
+            </label>
+          )}
+        </div>
+      </div>
+
+      {hecha && (
+        <div style={{ ...rejilla, marginTop: 12, paddingTop: 10, borderTop: '1px dashed #c9c9c9' }}>
+          <div style={campo}>
+            <span><b>Comprobación de la eficacia</b></span>
+            <small style={{ color: eficaciaVencida ? '#c62828' : undefined, opacity: eficaciaVencida ? 1 : 0.65, fontWeight: eficaciaVencida ? 700 : 400 }}>
+              {eficaciaVencida ? 'Fecha límite superada · ' : ''}Fecha límite: {fechaES(limite)}
+            </small>
+          </div>
+          <div style={campo}>
+            <Interruptor
+              activo={comprobada} etiqueta="Eficacia comprobada"
+              onChange={(on) => onCambio(f.id, on
+                ? { eficacia_estado: 'realizada', fecha_eficacia: hoy }
+                : { eficacia_estado: 'pendiente', fecha_eficacia: null })}
+            />
+          </div>
+          {comprobada && (
+            <label style={campo}>
+              <span>Fecha de comprobación</span>
+              <input type="date" style={ancho} value={f.fecha_eficacia ?? ''}
+                onChange={(e) => onCambio(f.id, { fecha_eficacia: e.target.value || null })} />
+            </label>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
   const [filas, setFilas] = useState([])
@@ -18,20 +151,33 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
+  const hoy = hoyISO()
 
   useEffect(() => {
     supabase.from('evaluacion_riesgos').select(COLUMNAS).eq('evaluacion_id', evaluacion.id)
       .then(({ data, error: err }) => {
         if (err) {
-          setError(err.message.includes('responsable') || err.message.includes('estado_accion')
-            ? 'Falta ampliar la base de datos: ejecuta migracion_pap.sql en el SQL Editor de Supabase.'
+          const falta = ['responsable', 'coste', 'estado_accion', 'fecha_realizacion', 'eficacia_estado', 'fecha_eficacia']
+          setError(falta.some((c) => err.message.includes(c))
+            ? 'Falta ampliar la base de datos: ejecuta migracion_pap.sql y migracion_pap2.sql en el SQL Editor de Supabase.'
             : err.message)
         } else {
-          setFilas(data.map((r) => ({ ...r, medidas: r.medidas ?? [], estado_accion: r.estado_accion ?? 'pendiente' })))
+          setFilas(data.map((r) => {
+            const vr = vrDe(r.p, r.c)
+            return {
+              ...r,
+              medidas: r.medidas ?? [],
+              responsable: r.responsable ?? RESPONSABLE_DEFECTO,
+              coste: r.coste ?? COSTE_POR_DEFECTO,
+              plazo: r.plazo ?? (vr ? plazoPorDefecto(vr, evaluacion.fecha) : null),
+              estado_accion: r.estado_accion === 'realizada' ? 'realizada' : 'pendiente',
+              eficacia_estado: r.eficacia_estado ?? 'pendiente',
+            }
+          }))
         }
         setCargando(false)
       })
-  }, [supabase, evaluacion.id])
+  }, [supabase, evaluacion.id, evaluacion.fecha])
 
   const plan = useMemo(() => filasPAP(filas), [filas])
   const sinVR = useMemo(() => filas.filter((f) => !vrDe(f.p, f.c)).length, [filas])
@@ -52,8 +198,12 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
     const payload = filas.filter((f) => cambiados.has(f.id)).map((f) => ({
       id: f.id, evaluacion_id: f.evaluacion_id, riesgo_nombre: f.riesgo_nombre, condicion: f.condicion, origen: f.origen,
       responsable: (f.responsable ?? '').trim() || null,
+      coste: formatearCoste(f.coste),
       plazo: f.plazo || null,
       estado_accion: f.estado_accion,
+      fecha_realizacion: f.estado_accion === 'realizada' ? f.fecha_realizacion || null : null,
+      eficacia_estado: f.estado_accion === 'realizada' ? f.eficacia_estado : 'pendiente',
+      fecha_eficacia: f.estado_accion === 'realizada' && f.eficacia_estado === 'realizada' ? f.fecha_eficacia || null : null,
     }))
     if (!payload.length) return
     setGuardando(true)
@@ -96,7 +246,7 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
       <h2>Plan de acción preventiva (PAP)</h2>
       <p>
         <b>{evaluacion.centro.codigo} · {evaluacion.centro.nombre}</b><br />
-        Puesto: <b>{evaluacion.puesto.nombre}</b> · {evaluacion.fecha}
+        Puesto: <b>{evaluacion.puesto.nombre}</b> · {fechaES(evaluacion.fecha)}
       </p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -127,33 +277,8 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
               Prioridad {pr.prioridad} · {vr} {pr.nombre} ({porVR[vr].length})
             </h3>
             <p style={{ margin: '0 0 10px', opacity: 0.8 }}>{pr.accion}</p>
-
             {porVR[vr].map((f) => (
-              <div key={f.id} style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: 12, marginBottom: 10 }}>
-                <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
-                <p style={{ margin: '4px 0' }}>{f.condicion}</p>
-                {f.medidas.length > 0 && (
-                  <ul style={{ margin: '4px 0 8px 18px', padding: 0 }}>
-                    {f.medidas.map((m, i) => <li key={i}>{m}</li>)}
-                  </ul>
-                )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  <label style={campo}>
-                    <span>Responsable</span>
-                    <input value={f.responsable ?? ''} onChange={(e) => cambiar(f.id, { responsable: e.target.value })} />
-                  </label>
-                  <label style={campo}>
-                    <span>Plazo</span>
-                    <input type="date" value={f.plazo ?? ''} onChange={(e) => cambiar(f.id, { plazo: e.target.value })} />
-                  </label>
-                  <label style={campo}>
-                    <span>Estado</span>
-                    <select value={f.estado_accion} onChange={(e) => cambiar(f.id, { estado_accion: e.target.value })}>
-                      {Object.entries(ESTADOS_ACCION).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
-                    </select>
-                  </label>
-                </div>
-              </div>
+              <TarjetaAccion key={f.id} f={f} fechaEval={evaluacion.fecha} hoy={hoy} onCambio={cambiar} />
             ))}
           </section>
         )

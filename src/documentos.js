@@ -1,6 +1,9 @@
 // Generación de documentos a partir de una evaluación: PAP (Excel y PDF) e IR (Word y PDF).
 // Las funciones de datos y HTML son puras; las de Excel y Word cargan su librería solo al usarlas.
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
+import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
+
+export { fechaES }
 
 // Prioridades y acciones según la valoración del riesgo (VR).
 export const PRIORIDADES = {
@@ -17,11 +20,6 @@ const numRiesgo = (id) => parseInt(String(id).replace(/\D/g, ''), 10) || 0
 
 export const esc = (s) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-export function fechaES(iso) {
-  const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
-}
 
 const quitarAcentos = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -122,8 +120,10 @@ export function htmlPAP(ev, filasPlan) {
   <td>${esc(pr.accion)}</td>
   <td>${(f.medidas ?? []).length ? `<ul>${f.medidas.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}</td>
   <td>${esc(f.responsable ?? '')}</td>
+  <td>${esc(f.coste ?? '')}</td>
   <td>${esc(fechaES(f.plazo))}</td>
-  <td>${esc(ESTADOS_ACCION[f.estado_accion] ?? '')}</td>
+  <td>${esc(textoRealizacion(f))}</td>
+  <td>${esc(textoEficacia(f, ev.fecha))}</td>
 </tr>`
   }).join('')
 
@@ -131,7 +131,8 @@ export function htmlPAP(ev, filasPlan) {
 <table>
   <thead><tr>
     <th>Prioridad</th><th>Riesgo</th><th>Situación de exposición</th><th>VR</th>
-    <th>Acción requerida</th><th>Medidas preventivas</th><th>Responsable</th><th>Plazo</th><th>Estado</th>
+    <th>Acción requerida</th><th>Medidas preventivas</th><th>Responsable</th><th>Coste</th>
+    <th>Plazo</th><th>Ejecución</th><th>Eficacia</th>
   </tr></thead>
   <tbody>${filas}</tbody>
 </table>`
@@ -171,8 +172,8 @@ export async function excelPAP(ev, filasPlan) {
   const bordes = { top: borde, left: borde, bottom: borde, right: borde }
 
   ws.columns = [
-    { width: 11 }, { width: 34 }, { width: 38 }, { width: 7 }, { width: 38 },
-    { width: 60 }, { width: 22 }, { width: 13 }, { width: 13 },
+    { width: 11 }, { width: 32 }, { width: 36 }, { width: 7 }, { width: 36 }, { width: 56 },
+    { width: 22 }, { width: 24 }, { width: 13 }, { width: 22 }, { width: 26 },
   ]
   ws.getCell('A1').value = 'Planificación de la actividad preventiva (PAP)'
   ws.getCell('A1').font = { name: 'Arial', size: 14, bold: true }
@@ -181,7 +182,7 @@ export async function excelPAP(ev, filasPlan) {
   ;['A2', 'A3'].forEach((c) => { ws.getCell(c).font = fuente })
 
   const cab = ['Prioridad', 'Riesgo', 'Situación de exposición', 'VR', 'Acción requerida',
-    'Medidas preventivas', 'Responsable', 'Plazo', 'Estado']
+    'Medidas preventivas', 'Responsable', 'Coste', 'Plazo', 'Ejecución', 'Eficacia']
   const filaCab = ws.getRow(5)
   cab.forEach((t, i) => {
     const c = filaCab.getCell(i + 1)
@@ -203,8 +204,10 @@ export async function excelPAP(ev, filasPlan) {
       pr.accion,
       (f.medidas ?? []).map((m) => `• ${m}`).join('\n'),
       f.responsable ?? '',
+      f.coste ?? '',
       f.plazo ? new Date(`${f.plazo}T00:00:00Z`) : null,
-      ESTADOS_ACCION[f.estado_accion] ?? '',
+      textoRealizacion(f),
+      textoEficacia(f, ev.fecha),
     ]
     valores.forEach((v, k) => {
       const c = fila.getCell(k + 1)
@@ -213,14 +216,14 @@ export async function excelPAP(ev, filasPlan) {
       c.border = bordes
       c.alignment = { vertical: 'top', wrapText: true, horizontal: k === 3 ? 'center' : 'left' }
     })
-    fila.getCell(8).numFmt = 'dd/mm/yyyy'
+    fila.getCell(9).numFmt = 'dd/mm/yyyy'
     const vr = fila.getCell(4)
     vr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_VR[f.vr].slice(1).toUpperCase() } }
     vr.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
   })
 
   ws.views = [{ state: 'frozen', ySplit: 5 }]
-  ws.autoFilter = { from: 'A5', to: `I${Math.max(5, 5 + filasPlan.length)}` }
+  ws.autoFilter = { from: 'A5', to: `K${Math.max(5, 5 + filasPlan.length)}` }
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
 
   const buf = await wb.xlsx.writeBuffer()
