@@ -9,6 +9,10 @@ export const ETIQUETA_VR = { T: 'Trivial', TO: 'Tolerable', MO: 'Moderado', IM: 
 export const COLOR_VR = { T: '#2e7d32', TO: '#689f38', MO: '#f9a825', IM: '#ef6c00', IN: '#c62828' }
 export const ORIGEN_TEXTO = { puesto: 'Puesto', todos: 'Todos los puestos', check: 'Check', manual: 'Manual', centro: 'Centro' }
 
+// Valores por defecto de un riesgo que entra por el check o se añade a mano: M + D = MO.
+export const P_DEFECTO = 'M'
+export const C_DEFECTO = 'D'
+
 export const nuevoId = () =>
   globalThis.crypto?.randomUUID?.() ??
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -75,8 +79,8 @@ export function filasDeCheck(preguntas, respuestas, nombresRiesgo) {
       riesgo_id: q.riesgo_id,
       riesgo_nombre: nombresRiesgo.get(q.riesgo_id) ?? q.riesgo_id,
       condicion: limpiar(q.pregunta),
-      p: null,
-      c: null,
+      p: P_DEFECTO,
+      c: C_DEFECTO,
       medidas: [...(respuestas[q.id].medidas ?? [])],
       origen: 'check',
     }))

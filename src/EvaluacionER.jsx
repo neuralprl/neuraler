@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  COLOR_VR, ETIQUETA_VR, ORIGEN_TEXTO, ORDEN_VR, nuevoId, resumenER, siguienteIdMedida, vrDe,
+  COLOR_VR, ETIQUETA_VR, ORDEN_VR, C_DEFECTO, P_DEFECTO, nuevoId, resumenER, siguienteIdMedida, vrDe,
 } from './evalLogic'
 import { descargar, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
 
@@ -41,7 +41,7 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
   const [filtro, setFiltro] = useState('todos')
-  const [nueva, setNueva] = useState({ riesgo_id: '', condicion: '', p: '', c: '', consolidar: false })
+  const [nueva, setNueva] = useState({ riesgo_id: '', condicion: '', p: P_DEFECTO, c: C_DEFECTO, consolidar: false })
   const catalogoRef = useRef(catalogo.slice())
 
   const cerrada = estado === 'cerrada'
@@ -89,7 +89,7 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
       id: nuevoId(), riesgo_id: r.id, riesgo_nombre: r.nombre, condicion,
       p: nueva.p || null, c: nueva.c || null, medidas: [], origen: 'manual', consolidar: nueva.consolidar,
     }, ...fs])
-    setNueva({ riesgo_id: '', condicion: '', p: '', c: '', consolidar: false })
+    setNueva({ riesgo_id: '', condicion: '', p: P_DEFECTO, c: C_DEFECTO, consolidar: false })
     setSucio(true); setMensaje('')
   }
 
@@ -310,9 +310,7 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
-                <span style={{ fontSize: 13, opacity: 0.75 }}>
-                  {f.origen === 'puesto' ? evaluacion.puesto.nombre : (ORIGEN_TEXTO[f.origen] ?? f.origen)}
-                </span>
+                <span style={{ fontSize: 13, opacity: 0.75 }}>{evaluacion.puesto.nombre}</span>
               </div>
 
               <label style={{ ...campo, marginTop: 8 }}>
