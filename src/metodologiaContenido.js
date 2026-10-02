@@ -57,14 +57,14 @@ export const PROBABILIDADES = [
 
 // Matriz P × C → nivel de riesgo (idéntica al cálculo de VR de la ER)
 export const MATRIZ = {
-  B: { LD: "TR", D: "TO", ED: "MO" },
+  B: { LD: "T", D: "TO", ED: "MO" },
   M: { LD: "TO", D: "MO", ED: "IM" },
   A: { LD: "MO", D: "IM", ED: "IN" },
 };
 
 export const NIVELES = [
   {
-    codigo: "TR",
+    codigo: "T",
     nombre: "Trivial",
     actuacion: "No requiere ninguna acción específica.",
     plazo: "Sin plazo",

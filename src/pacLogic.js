@@ -2,13 +2,18 @@
 // Funciones puras, sin red ni base de datos.
 import { limpiar } from './importLogic.js'
 import { COSTE_POR_DEFECTO, RESPONSABLE_DEFECTO, sumarPlazo } from './planLogic.js'
+import {
+  CONSECUENCIAS, MATRIZ_PAC, NIVELES_DEFICIENCIA, PRIORIDADES_PAC as PRIORIDADES_DOC,
+} from './metodologiaContenido.js'
 
 // ---------- prioridades y estados ----------
+// El texto del plazo (detalle) es el de la metodología; la fecha se calcula con la regla numérica.
+const detalleDoc = (clave) => PRIORIDADES_DOC.find((p) => p.nombre.toLowerCase() === clave)?.plazo ?? ''
 export const PRIORIDADES_PAC = {
-  inmediata: { etiqueta: 'Inmediata', detalle: 'ya', plazo: { dias: 0 }, color: '#c62828' },
-  alta: { etiqueta: 'Alta', detalle: '1 semana', plazo: { dias: 7 }, color: '#ef6c00' },
-  media: { etiqueta: 'Media', detalle: '1 mes', plazo: { meses: 1 }, color: '#f9a825' },
-  baja: { etiqueta: 'Baja', detalle: '3 meses', plazo: { meses: 3 }, color: '#2e7d32' },
+  inmediata: { etiqueta: 'Inmediata', detalle: detalleDoc('inmediata'), plazo: { dias: 0 }, color: '#c62828' },
+  alta: { etiqueta: 'Alta', detalle: detalleDoc('alta'), plazo: { dias: 7 }, color: '#ef6c00' },
+  media: { etiqueta: 'Media', detalle: detalleDoc('media'), plazo: { meses: 1 }, color: '#f9a825' },
+  baja: { etiqueta: 'Baja', detalle: detalleDoc('baja'), plazo: { meses: 3 }, color: '#2e7d32' },
 }
 export const ORDEN_PRIORIDAD_PAC = ['inmediata', 'alta', 'media', 'baja']
 export const ESTADOS_PAC = { pendiente: 'Pendiente', realizada: 'Realizada', alternativa: 'Medida alternativa' }
@@ -16,15 +21,28 @@ export const ESTADOS_PAC = { pendiente: 'Pendiente', realizada: 'Realizada', alt
 export const plazoPrioridad = (prioridad, fechaVisita) =>
   PRIORIDADES_PAC[prioridad] ? sumarPlazo(fechaVisita, PRIORIDADES_PAC[prioridad].plazo) : null
 
+// Prioridad de una incidencia según el nivel de deficiencia y las consecuencias (matriz de la metodología).
+export const DEFICIENCIA_DEFECTO = 'DEF'   // Deficiente
+export const CONSECUENCIAS_DEFECTO = 'D'   // Dañino  -> prioridad Media
+export const prioridadPAC = (deficiencia, consecuencias) => {
+  const p = MATRIZ_PAC[deficiencia]?.[consecuencias]
+  return p ? p.toLowerCase() : null
+}
+export const nombreDeficiencia = (codigo) => NIVELES_DEFICIENCIA.find((x) => x.codigo === codigo)?.nombre ?? ''
+export const nombreConsecuencia = (codigo) => CONSECUENCIAS.find((x) => x.codigo === codigo)?.nombre ?? ''
+
 // Valores de una incidencia recién marcada.
 export function incidenciaNueva(fechaVisita) {
+  const prioridad = prioridadPAC(DEFICIENCIA_DEFECTO, CONSECUENCIAS_DEFECTO)
   return {
     resultado: 'no_cumple',
-    prioridad: 'media',
+    deficiencia: DEFICIENCIA_DEFECTO,
+    consecuencias: CONSECUENCIAS_DEFECTO,
+    prioridad,
     observaciones: '',
     responsable: RESPONSABLE_DEFECTO,
     coste: COSTE_POR_DEFECTO,
-    plazo: plazoPrioridad('media', fechaVisita),
+    plazo: plazoPrioridad(prioridad, fechaVisita),
     estado_accion: 'pendiente',
     fecha_realizacion: null,
     medida_alternativa: '',
@@ -33,10 +51,13 @@ export function incidenciaNueva(fechaVisita) {
   }
 }
 
-// Al cambiar la prioridad, el plazo se recalcula salvo que se hubiera fijado a mano.
-export function conPrioridad(inc, nueva, fechaVisita) {
+// Al cambiar la deficiencia o las consecuencias se recalcula la prioridad y, con ella, el plazo
+// (salvo que el plazo se hubiera fijado a mano).
+export function conValoracion(inc, cambio, fechaVisita) {
+  const nueva = { ...inc, ...cambio }
+  const prioridad = prioridadPAC(nueva.deficiencia, nueva.consecuencias) ?? inc.prioridad
   const eraAutomatico = !inc.plazo || inc.plazo === plazoPrioridad(inc.prioridad, fechaVisita)
-  return { ...inc, prioridad: nueva, plazo: eraAutomatico ? plazoPrioridad(nueva, fechaVisita) : inc.plazo }
+  return { ...nueva, prioridad, plazo: eraAutomatico ? plazoPrioridad(prioridad, fechaVisita) : nueva.plazo }
 }
 
 // ---------- preguntas previas ----------

@@ -2,7 +2,7 @@
 // Las funciones de datos y HTML son puras; las de Excel y Word cargan su librería solo al usarlas.
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
 import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
-import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC } from './pacLogic.js'
+import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, nombreConsecuencia, nombreDeficiencia } from './pacLogic.js'
 
 export { fechaES }
 
@@ -266,10 +266,12 @@ const etiquetaPrioridad = (p) => {
   const x = PRIORIDADES_PAC[p]
   return x ? `${x.etiqueta} (${x.detalle})` : ''
 }
+const valoracionPAC = (f) =>
+  f.deficiencia && f.consecuencias ? `${nombreDeficiencia(f.deficiencia)} · ${nombreConsecuencia(f.consecuencias)}` : ''
 
 export function htmlPAC(ev, filas) {
   const trs = filas.map((f) => `<tr>
-  <td style="font-weight:bold;color:${PRIORIDADES_PAC[f.prioridad]?.color ?? '#000'}">${esc(etiquetaPrioridad(f.prioridad))}</td>
+  <td style="font-weight:bold;color:${PRIORIDADES_PAC[f.prioridad]?.color ?? '#000'}">${esc(etiquetaPrioridad(f.prioridad))}<br><span style="font-weight:normal;color:#333">${esc(valoracionPAC(f))}</span></td>
   <td>${esc(f.bloque)}${f.seccion ? ` · ${esc(f.seccion)}` : ''}</td>
   <td>${esc(f.punto)}</td>
   <td>${esc(f.observaciones ?? '')}</td>
@@ -317,7 +319,7 @@ export async function excelPAC(ev, filas) {
   filas.forEach((f, i) => {
     const fila = ws.getRow(6 + i)
     const valores = [
-      etiquetaPrioridad(f.prioridad),
+      etiquetaPrioridad(f.prioridad) + (valoracionPAC(f) ? `\n${valoracionPAC(f)}` : ''),
       f.bloque + (f.seccion ? ` · ${f.seccion}` : ''),
       f.punto,
       f.observaciones ?? '',

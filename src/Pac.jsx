@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import ImportarPac from './ImportarPac'
 import {
-  ESTADOS_PAC, ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, agruparItems, conPrioridad, evaluarRegla,
-  incidenciaNueva, itemVisible, respuestasPrevias,
+  ESTADOS_PAC, ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, agruparItems, conValoracion, evaluarRegla,
+  incidenciaNueva, itemVisible, prioridadPAC, respuestasPrevias,
 } from './pacLogic'
+import { CONSECUENCIAS, NIVELES_DEFICIENCIA } from './metodologiaContenido'
 import { COSTE_POR_DEFECTO, RESPONSABLES, fechaES, formatearCoste, hoyISO } from './planLogic'
 import { descargar, excelPAC, filasPAC, htmlPAC, imprimir, nombreArchivoPAC } from './documentos'
 
@@ -16,8 +17,8 @@ const rejilla = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax
 const aviso = { color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }
 const COLOR_PRIO = { inmediata: '#c62828', alta: '#d9600a', media: '#b8860b', baja: '#2e7d32' }
 const CAMPOS_RESP =
-  'visita_id,item_id,resultado,observaciones,prioridad,responsable,coste,plazo,estado_accion,fecha_realizacion,' +
-  'medida_alternativa,resuelta_estado,fecha_resuelta'
+  'visita_id,item_id,resultado,observaciones,deficiencia,consecuencias,prioridad,responsable,coste,plazo,' +
+  'estado_accion,fecha_realizacion,medida_alternativa,resuelta_estado,fecha_resuelta'
 
 function Segmento({ valor, opciones, onChange, etiqueta }) {
   return (
@@ -68,13 +69,34 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
 
   return (
     <div style={{ background: '#fafafa', border: '1px solid #e0e0e0', borderLeft: `5px solid ${COLOR_PRIO[r.prioridad] ?? '#999'}`, borderRadius: 8, padding: 12, marginTop: 8 }}>
-      <div style={campo}>
-        <span>Prioridad</span>
-        <Segmento
-          valor={r.prioridad} etiqueta="Prioridad"
-          opciones={ORDEN_PRIORIDAD_PAC.map((k) => [k, `${PRIORIDADES_PAC[k].etiqueta} · ${PRIORIDADES_PAC[k].detalle}`, COLOR_PRIO[k]])}
-          onChange={(v) => onCambio(conPrioridad(r, v, fechaVisita))}
-        />
+      <div style={rejilla}>
+        <div style={campo}>
+          <span>Nivel de deficiencia</span>
+          <Segmento
+            valor={r.deficiencia} etiqueta="Nivel de deficiencia"
+            opciones={NIVELES_DEFICIENCIA.map((d) => [d.codigo, d.nombre, '#455a64'])}
+            onChange={(v) => onCambio(conValoracion(r, { deficiencia: v }, fechaVisita))}
+          />
+          <small style={{ opacity: 0.7 }}>{NIVELES_DEFICIENCIA.find((d) => d.codigo === r.deficiencia)?.descripcion}</small>
+        </div>
+        <div style={campo}>
+          <span>Consecuencias posibles</span>
+          <Segmento
+            valor={r.consecuencias} etiqueta="Consecuencias"
+            opciones={CONSECUENCIAS.map((c) => [c.codigo, c.nombre, '#455a64'])}
+            onChange={(v) => onCambio(conValoracion(r, { consecuencias: v }, fechaVisita))}
+          />
+          <small style={{ opacity: 0.7 }}>{CONSECUENCIAS.find((c) => c.codigo === r.consecuencias)?.descripcion}</small>
+        </div>
+        <div style={campo}>
+          <span>Prioridad (según la matriz)</span>
+          <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', minHeight: 34 }}>
+            <span style={{ background: COLOR_PRIO[r.prioridad], color: '#fff', borderRadius: 12, padding: '2px 12px', fontWeight: 700 }}>
+              {prio?.etiqueta}
+            </span>
+            <span>{prio?.detalle}</span>
+          </span>
+        </div>
       </div>
 
       <label style={{ ...campo, marginTop: 10 }}>
@@ -113,7 +135,7 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
           <span>Plazo</span>
           <input type="date" style={ancho} value={r.plazo ?? ''} onChange={(e) => onCambio({ ...r, plazo: e.target.value || null })} />
           <small style={{ color: plazoVencido ? '#c62828' : undefined, opacity: plazoVencido ? 1 : 0.65, fontWeight: plazoVencido ? 700 : 400 }}>
-            {plazoVencido ? 'Plazo vencido · ' : ''}Estándar: {prio?.etiqueta} ({prio?.detalle})
+            {plazoVencido ? 'Plazo vencido · ' : ''}Estándar: {prio?.detalle}
           </small>
         </label>
       </div>
@@ -213,7 +235,13 @@ function VisitaPac({ supabase, visitaId, onVolver }) {
       vp.data.forEach((x) => { ov[x.pregunta_id] = x.respuesta })
       const rr = {}
       rs.data.forEach((x) => {
-        rr[x.item_id] = { ...x, medida_alternativa: x.medida_alternativa ?? '', observaciones: x.observaciones ?? '' }
+        const deficiencia = x.deficiencia ?? 'DEF'
+        const consecuencias = x.consecuencias ?? 'D'
+        rr[x.item_id] = {
+          ...x, deficiencia, consecuencias,
+          prioridad: x.resultado === 'no_cumple' ? (prioridadPAC(deficiencia, consecuencias) ?? x.prioridad) : x.prioridad,
+          medida_alternativa: x.medida_alternativa ?? '', observaciones: x.observaciones ?? '',
+        }
       })
       setDatos({ visita: v.data, centro: v.data.centros, preguntas: pq.data, items: it.data })
       setOverrides(ov); setResp(rr); setEstado(v.data.estado)
@@ -280,6 +308,8 @@ function VisitaPac({ supabase, visitaId, onVolver }) {
         paraGuardar.push({
           visita_id: visitaId, item_id: id, resultado: 'no_cumple',
           observaciones: (r.observaciones ?? '').trim() || null,
+          deficiencia: r.deficiencia,
+          consecuencias: r.consecuencias,
           prioridad: r.prioridad,
           responsable: (r.responsable ?? '').trim() || null,
           coste: formatearCoste(r.coste),
