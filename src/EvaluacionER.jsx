@@ -310,9 +310,8 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
-                <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, opacity: 0.7 }}>{ORIGEN_TEXTO[f.origen] ?? f.origen}</span>
-                  <InsigniaVR p={f.p} c={f.c} />
+                <span style={{ fontSize: 13, opacity: 0.75 }}>
+                  {f.origen === 'puesto' ? evaluacion.puesto.nombre : (ORIGEN_TEXTO[f.origen] ?? f.origen)}
                 </span>
               </div>
 
@@ -336,6 +335,13 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
                     {OPC_C.map(([v, t]) => <option key={v} value={v}>{v} · {t}</option>)}
                   </select>
                 </label>
+                <div style={campo}>
+                  <span>Valoración del riesgo</span>
+                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', minHeight: 34 }}>
+                    <InsigniaVR p={f.p} c={f.c} />
+                    <span>{vr ? ETIQUETA_VR[vr] : 'Falta indicar P y C'}</span>
+                  </span>
+                </div>
               </div>
 
               <div style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 4px' }}>Medidas preventivas ({f.medidas.length})</div>
