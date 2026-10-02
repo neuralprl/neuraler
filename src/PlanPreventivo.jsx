@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic'
 import { PRIORIDADES, descargar, excelPAP, filasPAP, htmlPAP, imprimir, nombreArchivo } from './documentos'
 import {
@@ -17,13 +17,14 @@ const COLUMNAS =
   'id,evaluacion_id,riesgo_id,riesgo_nombre,condicion,p,c,medidas,origen,responsable,coste,plazo,' +
   'estado_accion,fecha_realizacion,eficacia_estado,fecha_eficacia'
 
-function Interruptor({ activo, onChange, etiqueta }) {
+function Interruptor({ activo, onChange, etiqueta, deshabilitado = false }) {
   return (
     <button
-      type="button" role="switch" aria-checked={activo} aria-label={etiqueta} onClick={() => onChange(!activo)}
+      type="button" role="switch" aria-checked={activo} aria-label={etiqueta} disabled={deshabilitado} onClick={() => onChange(!activo)}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 10, background: 'none', border: 'none',
-        padding: '4px 0', margin: 0, cursor: 'pointer', font: 'inherit', color: 'inherit', boxShadow: 'none',
+        padding: '4px 0', margin: 0, cursor: deshabilitado ? 'default' : 'pointer', font: 'inherit', color: 'inherit',
+        boxShadow: 'none', opacity: deshabilitado ? 0.6 : 1,
       }}
     >
       <span style={{ position: 'relative', width: 46, height: 26, borderRadius: 13, flex: 'none',
@@ -36,7 +37,7 @@ function Interruptor({ activo, onChange, etiqueta }) {
   )
 }
 
-function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
+function TarjetaAccion({ f, fechaEval, hoy, onCambio, soloEstado }) {
   const plazoEstandar = PLAZO_POR_VR[f.vr]?.etiqueta
   const hecha = f.estado_accion === 'realizada'
   const comprobada = f.eficacia_estado === 'realizada'
@@ -60,7 +61,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
           <label style={campo}>
             <span>Responsable</span>
             <select
-              style={ancho} value={esEstandar ? f.responsable : 'otro'}
+              style={ancho} disabled={soloEstado} value={esEstandar ? f.responsable : 'otro'}
               onChange={(e) => onCambio(f.id, { responsable: e.target.value === 'otro' ? '' : e.target.value })}
             >
               {RESPONSABLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -69,7 +70,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
           </label>
           {!esEstandar && (
             <input
-              style={ancho} placeholder="Indica quién" value={f.responsable ?? ''}
+              style={ancho} disabled={soloEstado} placeholder="Indica quién" value={f.responsable ?? ''}
               onChange={(e) => onCambio(f.id, { responsable: e.target.value })}
             />
           )}
@@ -78,7 +79,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
         <label style={campo}>
           <span>Coste de la medida</span>
           <input
-            style={ancho} value={f.coste ?? ''}
+            style={ancho} disabled={soloEstado} value={f.coste ?? ''}
             onFocus={(e) => e.target.select()}
             onChange={(e) => onCambio(f.id, { coste: e.target.value })}
             onBlur={() => {
@@ -91,7 +92,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
 
         <label style={campo}>
           <span>Plazo</span>
-          <input type="date" style={ancho} value={f.plazo ?? ''} onChange={(e) => onCambio(f.id, { plazo: e.target.value })} />
+          <input type="date" style={ancho} disabled={soloEstado} value={f.plazo ?? ''} onChange={(e) => onCambio(f.id, { plazo: e.target.value })} />
           <small style={{ color: plazoVencido ? '#c62828' : undefined, opacity: plazoVencido ? 1 : 0.65, fontWeight: plazoVencido ? 700 : 400 }}>
             {plazoVencido ? 'Plazo vencido · ' : ''}Estándar de esta prioridad: {plazoEstandar}
           </small>
@@ -125,7 +126,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
           </div>
           <div style={campo}>
             <Interruptor
-              activo={comprobada} etiqueta="Eficacia comprobada"
+              activo={comprobada} etiqueta="Eficacia comprobada" deshabilitado={soloEstado}
               onChange={(on) => onCambio(f.id, on
                 ? { eficacia_estado: 'realizada', fecha_eficacia: hoy }
                 : { eficacia_estado: 'pendiente', fecha_eficacia: null })}
@@ -134,7 +135,7 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
           {comprobada && (
             <label style={campo}>
               <span>Fecha de comprobación</span>
-              <input type="date" style={ancho} value={f.fecha_eficacia ?? ''}
+              <input type="date" style={ancho} disabled={soloEstado} value={f.fecha_eficacia ?? ''}
                 onChange={(e) => onCambio(f.id, { fecha_eficacia: e.target.value || null })} />
             </label>
           )}
@@ -144,13 +145,16 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio }) {
   )
 }
 
-export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
+export default function PlanPreventivo({ supabase, evaluacion, onVolver, soloEstado = false }) {
   const [filas, setFilas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [cambiados, setCambiados] = useState(() => new Set())
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
+  const [falloAuto, setFalloAuto] = useState(false)
+  const filasRef = useRef(filas)
+  filasRef.current = filas
   const hoy = hoyISO()
 
   useEffect(() => {
@@ -191,7 +195,44 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
     setFilas((fs) => fs.map((f) => (f.id === id ? { ...f, ...parche } : f)))
     setCambiados((s) => new Set(s).add(id))
     setMensaje('')
+    setFalloAuto(false)
   }
+
+  // Usuario de centro: cada cambio se guarda solo, a los 0,6 s, con la función segura del servidor.
+  async function guardarAuto() {
+    const instantanea = filasRef.current.filter((f) => cambiados.has(f.id))
+    if (!instantanea.length) return
+    setGuardando(true); setError(''); setMensaje('')
+    try {
+      for (const f of instantanea) {
+        const hecha = f.estado_accion === 'realizada'
+        const { error: err } = await supabase.rpc('centro_actualizar_pap', {
+          p_id: f.id,
+          p_estado: hecha ? 'realizada' : 'pendiente',
+          p_fecha_realizacion: hecha ? f.fecha_realizacion || null : null,
+        })
+        if (err) throw err
+      }
+      // Solo se da por guardado lo que no ha cambiado mientras tanto
+      setCambiados((previos) => {
+        const n = new Set(previos)
+        instantanea.forEach((f) => { if (filasRef.current.find((x) => x.id === f.id) === f) n.delete(f.id) })
+        return n
+      })
+      setMensaje('Guardado')
+    } catch (err) {
+      setError(err.message)
+      setFalloAuto(true)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!soloEstado || guardando || falloAuto || cambiados.size === 0) return undefined
+    const t = setTimeout(guardarAuto, 600)
+    return () => clearTimeout(t)
+  }, [soloEstado, guardando, falloAuto, cambiados, filas]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function guardar() {
     setError(''); setMensaje('')
@@ -237,7 +278,7 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
   }
 
   function volver() {
-    if (cambiados.size > 0 && !window.confirm('Hay cambios sin guardar en el plan. ¿Salir igualmente?')) return
+    if (!soloEstado && cambiados.size > 0 && !window.confirm('Hay cambios sin guardar en el plan. ¿Salir igualmente?')) return
     onVolver()
   }
 
@@ -250,15 +291,21 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
       </p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={guardar} disabled={guardando || cambiados.size === 0} style={{ padding: '8px 16px', fontWeight: 600 }}>
-          {guardando ? 'Guardando...' : 'Guardar plan'}
-        </button>
+        {soloEstado ? (
+          <span style={{ alignSelf: 'center', opacity: 0.8 }}>
+            {guardando ? 'Guardando...' : cambiados.size > 0 && !falloAuto ? 'Guardando en un momento...' : 'Los cambios se guardan solos'}
+          </span>
+        ) : (
+          <button onClick={guardar} disabled={guardando || cambiados.size === 0} style={{ padding: '8px 16px', fontWeight: 600 }}>
+            {guardando ? 'Guardando...' : 'Guardar plan'}
+          </button>
+        )}
         <button className="secundario" onClick={bajarExcel} disabled={cargando || plan.length === 0}>Descargar Excel</button>
         <button className="secundario" onClick={verPDF} disabled={cargando || plan.length === 0}>Generar PDF</button>
         <button className="secundario" onClick={volver} disabled={guardando}>Volver a la evaluación</button>
       </div>
 
-      {cambiados.size > 0 && <p style={{ color: '#8a6d00' }}>Hay cambios sin guardar.</p>}
+      {!soloEstado && cambiados.size > 0 && <p style={{ color: '#8a6d00' }}>Hay cambios sin guardar.</p>}
       {mensaje && <p style={{ color: '#2e7d32' }}>{mensaje}</p>}
       {error && <p style={{ color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }}>{error}</p>}
       {cargando && <p>Cargando...</p>}
@@ -278,7 +325,7 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver }) {
             </h3>
             <p style={{ margin: '0 0 10px', opacity: 0.8 }}>{pr.accion}</p>
             {porVR[vr].map((f) => (
-              <TarjetaAccion key={f.id} f={f} fechaEval={evaluacion.fecha} hoy={hoy} onCambio={cambiar} />
+              <TarjetaAccion key={f.id} f={f} fechaEval={evaluacion.fecha} hoy={hoy} onCambio={cambiar} soloEstado={soloEstado} />
             ))}
           </section>
         )

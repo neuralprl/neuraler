@@ -1,0 +1,308 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import PlanPreventivo from './PlanPreventivo'
+import MetodologiaTab from './MetodologiaTab'
+import { FormIncidencia } from './Pac'
+import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
+import { descargar, filasPAC, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
+import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, prioridadPAC } from './pacLogic'
+import { fechaES, hoyISO } from './planLogic'
+
+// Aplicación del usuario de centro (acceso restringido). Solo ve la evaluación asignada:
+// su evaluación (solo lectura), su IR, el PAP y el PAC (donde solo cambia el estado) y la metodología.
+// La seguridad real la imponen las políticas de Supabase; esta pantalla solo muestra lo permitido.
+
+const aviso = { color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }
+const COLOR_PRIO = { inmediata: '#c62828', alta: '#d9600a', media: '#b8860b', baja: '#2e7d32' }
+
+// ---------------------------------------------------------------------
+function VistaEvaluacion({ supabase, evaluacion }) {
+  const [filas, setFilas] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    supabase.from('evaluacion_riesgos')
+      .select('id,riesgo_id,riesgo_nombre,condicion,p,c,medidas,origen').eq('evaluacion_id', evaluacion.id)
+      .then(({ data, error: err }) => {
+        if (err) setError(err.message)
+        else setFilas(ordenarFilas(data.map((r) => ({ ...r, medidas: r.medidas ?? [] }))))
+      })
+  }, [supabase, evaluacion.id])
+
+  async function bajarWord() {
+    setError('')
+    try { descargar(await wordIR(evaluacion, filas), nombreArchivo('IR', evaluacion, 'docx')) }
+    catch (err) { setError('No se pudo generar el Word: ' + err.message) }
+  }
+  function verPDF() {
+    setError('')
+    try { imprimir(htmlIR(evaluacion, filas)) } catch (err) { setError(err.message) }
+  }
+
+  return (
+    <div style={{ textAlign: 'left' }}>
+      <h2>Evaluación de riesgos</h2>
+      <p>
+        <b>{evaluacion.centro.codigo} · {evaluacion.centro.nombre}</b><br />
+        Puesto: <b>{evaluacion.puesto.nombre}</b> · {fechaES(evaluacion.fecha)}
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <b>Información de riesgos (IR):</b>
+        <button className="secundario" onClick={bajarWord} disabled={!filas}>Descargar Word</button>
+        <button className="secundario" onClick={verPDF} disabled={!filas}>Generar PDF</button>
+      </div>
+      {error && <p style={aviso}>{error}</p>}
+      {!filas && !error && <p>Cargando...</p>}
+      {filas && filas.length === 0 && <p className="vacio">Esta evaluación no tiene riesgos.</p>}
+      {filas?.map((f) => {
+        const vr = vrDe(f.p, f.c)
+        return (
+          <div key={f.id} style={{ border: '1px solid #d9d9d9', borderLeft: `6px solid ${vr ? COLOR_VR[vr] : '#9e9e9e'}`, borderRadius: 8, padding: 12, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
+              {vr && (
+                <span title={ETIQUETA_VR[vr]} style={{ background: COLOR_VR[vr], color: '#fff', borderRadius: 12, padding: '2px 10px', fontWeight: 700, fontSize: 13 }}>
+                  {vr} · {ETIQUETA_VR[vr]}
+                </span>
+              )}
+            </div>
+            <p style={{ margin: '6px 0' }}>{f.condicion}</p>
+            {f.medidas.length > 0 && (
+              <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
+                {f.medidas.map((m, i) => <li key={i}>{m}</li>)}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
+function PacCentro({ supabase, centroId }) {
+  const [visitas, setVisitas] = useState(null)
+  const [visita, setVisita] = useState(null)
+  const [items, setItems] = useState([])
+  const [resp, setResp] = useState({})
+  const [cambiados, setCambiados] = useState(() => new Set())
+  const [guardando, setGuardando] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+  const [error, setError] = useState('')
+  const [falloAuto, setFalloAuto] = useState(false)
+  const respRef = useRef(resp)
+  respRef.current = resp
+  const hoy = hoyISO()
+
+  useEffect(() => {
+    supabase.from('pac_visitas').select('id,fecha,estado').eq('centro_id', centroId).order('fecha', { ascending: false })
+      .then(({ data, error: err }) => {
+        if (err) setError(err.message)
+        else { setVisitas(data); if (data.length === 1) setVisita(data[0]) }
+      })
+  }, [supabase, centroId])
+
+  useEffect(() => {
+    if (!visita) return
+    setResp({}); setCambiados(new Set()); setMensaje(''); setError('')
+    Promise.all([
+      supabase.from('pac_items').select('id,orden,bloque,seccion,punto'),
+      supabase.from('pac_respuestas').select('*').eq('visita_id', visita.id).eq('resultado', 'no_cumple'),
+    ]).then(([it, rs]) => {
+      const fallo = it.error || rs.error
+      if (fallo) { setError(fallo.message); return }
+      const rr = {}
+      rs.data.forEach((x) => {
+        const deficiencia = x.deficiencia ?? 'DEF'
+        const consecuencias = x.consecuencias ?? 'D'
+        rr[x.item_id] = {
+          ...x, deficiencia, consecuencias,
+          prioridad: prioridadPAC(deficiencia, consecuencias) ?? x.prioridad,
+          medida_alternativa: x.medida_alternativa ?? '', observaciones: x.observaciones ?? '',
+        }
+      })
+      setItems(it.data); setResp(rr)
+    })
+  }, [supabase, visita])
+
+  const incidencias = useMemo(() => filasPAC(items, resp), [items, resp])
+
+  // Una incidencia con «medida alternativa» no se guarda hasta que se indica cuál es.
+  const completa = (r) => !!r && !(r.estado_accion === 'alternativa' && !(r.medida_alternativa ?? '').trim())
+  const hayListos = [...cambiados].some((id) => completa(resp[id]))
+  const faltanMedida = [...cambiados].some((id) => resp[id] && !completa(resp[id]))
+
+  function cambiar(itemId, nuevo) {
+    setResp((r) => ({ ...r, [itemId]: nuevo }))
+    setCambiados((s) => new Set(s).add(itemId))
+    setMensaje('')
+    setFalloAuto(false)
+  }
+
+  // Cada cambio se guarda solo, a los 0,6 s, con la función segura del servidor.
+  async function guardarAuto() {
+    const instantanea = [...cambiados].map((id) => [id, respRef.current[id]]).filter(([, r]) => completa(r))
+    if (!instantanea.length) return
+    setGuardando(true); setError(''); setMensaje('')
+    try {
+      for (const [id, r] of instantanea) {
+        const { error: err } = await supabase.rpc('centro_actualizar_pac', {
+          p_visita: visita.id,
+          p_item: id,
+          p_estado: r.estado_accion,
+          p_fecha_realizacion: r.estado_accion === 'pendiente' ? null : r.fecha_realizacion || null,
+          p_medida_alternativa: r.estado_accion === 'alternativa' ? (r.medida_alternativa ?? '').trim() : null,
+        })
+        if (err) throw err
+      }
+      // Solo se da por guardado lo que no ha cambiado mientras tanto
+      setCambiados((previos) => {
+        const n = new Set(previos)
+        instantanea.forEach(([id, r]) => { if (respRef.current[id] === r) n.delete(id) })
+        return n
+      })
+      setMensaje('Guardado')
+    } catch (err) {
+      setError(err.message)
+      setFalloAuto(true)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!hayListos || guardando || falloAuto) return undefined
+    const t = setTimeout(guardarAuto, 600)
+    return () => clearTimeout(t)
+  }, [hayListos, guardando, falloAuto, cambiados, resp]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!visitas && !error) return <p>Cargando...</p>
+
+  if (!visita) {
+    return (
+      <div style={{ textAlign: 'left' }}>
+        <h2>Visitas PAC</h2>
+        {error && <p style={aviso}>{error}</p>}
+        {visitas?.length === 0 && <p className="vacio">Todavía no hay visitas registradas en el centro.</p>}
+        {visitas?.map((v) => (
+          <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
+            <span>{fechaES(v.fecha)} · {v.estado === 'cerrada' ? 'Cerrada' : 'Borrador'}</span>
+            <button className="secundario" onClick={() => setVisita(v)}>Abrir</button>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ textAlign: 'left' }}>
+      <h2>Visita del {fechaES(visita.fecha)}</h2>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <span style={{ alignSelf: 'center', opacity: 0.8 }}>
+          {guardando ? 'Guardando...' : hayListos && !falloAuto ? 'Guardando en un momento...' : 'Los cambios se guardan solos'}
+        </span>
+        {visitas?.length > 1 && <button className="secundario" onClick={() => setVisita(null)} disabled={guardando}>Otras visitas</button>}
+      </div>
+      {faltanMedida && <p style={{ color: '#8a6d00' }}>Hay incidencias con medida alternativa sin describir: se guardarán en cuanto indiques cuál es.</p>}
+      {mensaje && <p style={{ color: '#2e7d32' }}>{mensaje}</p>}
+      {error && <p style={aviso}>{error}</p>}
+      <p style={{ opacity: 0.75 }}>Puedes elegir el estado de cada incidencia (pendiente, realizada o medida alternativa). El resto es de solo lectura.</p>
+      {incidencias.length === 0 && !error && <p className="vacio">La visita no tiene incidencias.</p>}
+      {ORDEN_PRIORIDAD_PAC.map((k) => {
+        const grupo = incidencias.filter((f) => f.prioridad === k)
+        if (grupo.length === 0) return null
+        return (
+          <section key={k} style={{ marginBottom: 20 }}>
+            <h3 style={{ borderLeft: `6px solid ${COLOR_PRIO[k]}`, paddingLeft: 10 }}>
+              Prioridad {PRIORIDADES_PAC[k].etiqueta} ({grupo.length})
+            </h3>
+            {grupo.map((f) => (
+              <div key={f.item_id} style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>{f.bloque}{f.seccion ? ` · ${f.seccion}` : ''}</div>
+                <strong>{f.punto}</strong>
+                <FormIncidencia
+                  r={resp[f.item_id]} fechaVisita={visita.fecha} hoy={hoy} soloEstado
+                  onCambio={(nuevo) => cambiar(f.item_id, nuevo)}
+                />
+              </div>
+            ))}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
+export default function AppCentro({ supabase, sesion }) {
+  const [evals, setEvals] = useState(null)
+  const [sel, setSel] = useState(null)
+  const [seccion, setSeccion] = useState('evaluacion')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)')
+      .order('fecha', { ascending: false })
+      .then(({ data, error: err }) => {
+        if (err) { setError(err.message); return }
+        const lista = data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, centro: e.centros, puesto: e.puestos }))
+        setEvals(lista)
+        if (lista.length === 1) setSel(lista[0])
+      })
+  }, [supabase])
+
+  const SECCIONES = [
+    { id: 'evaluacion', texto: 'Evaluación' },
+    { id: 'pap', texto: 'Plan de acción (PAP)' },
+    { id: 'pac', texto: 'Visitas PAC' },
+    { id: 'metodologia', texto: 'Metodología' },
+  ]
+
+  return (
+    <div className="app">
+      <header className="cabecera">
+        <span className="franja" aria-hidden="true" />
+        <strong>Evaluación de riesgos</strong>
+        <span className="usuario">{sesion.user.email}</span>
+        <button className="secundario" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
+      </header>
+
+      <main className="contenido">
+        {error && <p style={aviso}>{error}</p>}
+        {!evals && !error && <p>Cargando...</p>}
+        {evals && evals.length === 0 && <p className="vacio">Todavía no tienes ninguna evaluación asignada.</p>}
+
+        {evals && evals.length > 1 && !sel && (
+          <div style={{ textAlign: 'left' }}>
+            <h2>Tus evaluaciones</h2>
+            {evals.map((e) => (
+              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
+                <span>{e.centro?.nombre} · {e.puesto?.nombre} · {fechaES(e.fecha)}</span>
+                <button className="secundario" onClick={() => { setSel(e); setSeccion('evaluacion') }}>Abrir</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {sel && (
+          <>
+            <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {SECCIONES.map((s) => (
+                <button key={s.id} className="secundario" onClick={() => setSeccion(s.id)} aria-current={seccion === s.id ? 'page' : undefined}
+                  style={seccion === s.id ? { fontWeight: 700, textDecoration: 'underline' } : undefined}>
+                  {s.texto}
+                </button>
+              ))}
+              {evals.length > 1 && <button className="secundario" onClick={() => setSel(null)}>Cambiar de evaluación</button>}
+            </nav>
+            {seccion === 'evaluacion' && <VistaEvaluacion supabase={supabase} evaluacion={sel} />}
+            {seccion === 'pap' && (
+              <PlanPreventivo supabase={supabase} evaluacion={sel} soloEstado onVolver={() => setSeccion('evaluacion')} />
+            )}
+            {seccion === 'pac' && <PacCentro supabase={supabase} centroId={sel.centro.id} />}
+            {seccion === 'metodologia' && <MetodologiaTab />}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}

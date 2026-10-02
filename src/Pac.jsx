@@ -43,13 +43,14 @@ function Segmento({ valor, opciones, onChange, etiqueta }) {
   )
 }
 
-function Interruptor({ activo, onChange, textoOff, textoOn, etiqueta }) {
+function Interruptor({ activo, onChange, textoOff, textoOn, etiqueta, deshabilitado = false }) {
   return (
     <button
-      type="button" role="switch" aria-checked={activo} aria-label={etiqueta} onClick={() => onChange(!activo)}
+      type="button" role="switch" aria-checked={activo} aria-label={etiqueta} disabled={deshabilitado} onClick={() => onChange(!activo)}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', padding: '4px 0',
-        margin: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit', boxShadow: 'none',
+        margin: 0, cursor: deshabilitado ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit',
+        boxShadow: 'none', opacity: deshabilitado ? 0.6 : 1,
       }}
     >
       <span style={{ position: 'relative', width: 46, height: 26, borderRadius: 13, flex: 'none', background: activo ? '#2e7d32' : '#9e9e9e' }}>
@@ -61,7 +62,7 @@ function Interruptor({ activo, onChange, textoOff, textoOn, etiqueta }) {
 }
 
 // ---------------------------------------------------------------------
-function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
+export function FormIncidencia({ r, fechaVisita, hoy, onCambio, soloEstado = false }) {
   const esEstandar = RESPONSABLES.includes(r.responsable)
   const prio = PRIORIDADES_PAC[r.prioridad]
   const hecha = r.estado_accion !== 'pendiente'
@@ -69,6 +70,7 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
 
   return (
     <div style={{ background: '#fafafa', border: '1px solid #e0e0e0', borderLeft: `5px solid ${COLOR_PRIO[r.prioridad] ?? '#999'}`, borderRadius: 8, padding: 12, marginTop: 8 }}>
+      <fieldset disabled={soloEstado} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div style={rejilla}>
         <div style={campo}>
           <span>Nivel de deficiencia</span>
@@ -140,6 +142,8 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
         </label>
       </div>
 
+      </fieldset>
+
       <div style={{ ...campo, marginTop: 12 }}>
         <span>Estado</span>
         <Segmento
@@ -155,8 +159,15 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
         <div style={{ ...rejilla, marginTop: 10 }}>
           {r.estado_accion === 'alternativa' && (
             <label style={{ ...campo, gridColumn: '1 / -1' }}>
-              <span>Medida alternativa que reduce el riesgo</span>
-              <textarea rows={2} style={ancho} value={r.medida_alternativa ?? ''} onChange={(e) => onCambio({ ...r, medida_alternativa: e.target.value })} />
+              <span>¿Cuál es la medida nueva? (obligatorio)</span>
+              <textarea
+                rows={2} placeholder="Describe la medida alternativa que reduce el riesgo"
+                style={{ ...ancho, borderColor: (r.medida_alternativa ?? '').trim() ? undefined : '#c62828' }}
+                value={r.medida_alternativa ?? ''} onChange={(e) => onCambio({ ...r, medida_alternativa: e.target.value })}
+              />
+              {!(r.medida_alternativa ?? '').trim() && (
+                <small style={{ color: '#c62828', fontWeight: 600 }}>Indica cuál es la medida para que se guarde.</small>
+              )}
             </label>
           )}
           <label style={campo}>
@@ -166,7 +177,7 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
           <div style={campo}>
             <span><b>Comprobación de que la incidencia está resuelta</b></span>
             <Interruptor
-              activo={r.resuelta_estado === 'resuelta'} etiqueta="Incidencia resuelta" textoOff="Pendiente" textoOn="Resuelta"
+              activo={r.resuelta_estado === 'resuelta'} etiqueta="Incidencia resuelta" textoOff="Pendiente" textoOn="Resuelta" deshabilitado={soloEstado}
               onChange={(on) => onCambio(on
                 ? { ...r, resuelta_estado: 'resuelta', fecha_resuelta: r.fecha_resuelta || hoy }
                 : { ...r, resuelta_estado: 'pendiente', fecha_resuelta: null })}
@@ -175,7 +186,7 @@ function FormIncidencia({ r, fechaVisita, hoy, onCambio }) {
           {r.resuelta_estado === 'resuelta' && (
             <label style={campo}>
               <span>Fecha de comprobación</span>
-              <input type="date" style={ancho} value={r.fecha_resuelta ?? ''} onChange={(e) => onCambio({ ...r, fecha_resuelta: e.target.value || null })} />
+              <input type="date" style={ancho} disabled={soloEstado} value={r.fecha_resuelta ?? ''} onChange={(e) => onCambio({ ...r, fecha_resuelta: e.target.value || null })} />
             </label>
           )}
         </div>

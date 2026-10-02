@@ -4,12 +4,15 @@ import Login from './Login'
 import Centros from './Centros'
 import Evaluaciones from './Evaluaciones'
 import Pac from './Pac'
+import MetodologiaTab from './MetodologiaTab'
+import AppCentro from './AppCentro'
 import ImportarDatos from './ImportarDatos'
 
 const SECCIONES = [
   { id: 'evaluaciones', texto: 'Evaluaciones' },
   { id: 'pac', texto: 'PAC' },
   { id: 'centros', texto: 'Centros' },
+  { id: 'metodologia', texto: 'Metodología' },
   { id: 'importar', texto: 'Importar datos' },
 ]
 
@@ -40,6 +43,7 @@ export default function App() {
 
   if (!listo) return null
   if (!sesion) return <Login />
+  if (sesion.user?.app_metadata?.rol === 'centro') return <AppCentro supabase={supabase} sesion={sesion} />
 
   return (
     <div className="app">
@@ -70,6 +74,7 @@ export default function App() {
         {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} />}
         {seccion === 'pac' && <Pac supabase={supabase} />}
         {seccion === 'centros' && <Centros supabase={supabase} />}
+        {seccion === 'metodologia' && <MetodologiaTab />}
         {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
       </main>
     </div>

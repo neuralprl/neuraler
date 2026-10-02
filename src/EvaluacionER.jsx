@@ -3,6 +3,7 @@ import {
   COLOR_VR, ETIQUETA_VR, ORDEN_VR, C_DEFECTO, P_DEFECTO, nuevoId, resumenER, siguienteIdMedida, vrDe,
 } from './evalLogic'
 import { descargar, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
+import AccesoEvaluacion from './AccesoEvaluacion'
 
 // Evaluación de riesgos (ER): tabla principal editable.
 // Props: supabase, evaluacion {id, fecha, estado, centro, puesto}, filasIniciales, catalogo, riesgos, onVolver
@@ -43,6 +44,7 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
   const [filtro, setFiltro] = useState('todos')
   const [nueva, setNueva] = useState({ riesgo_id: '', condicion: '', p: P_DEFECTO, c: C_DEFECTO, consolidar: false })
   const catalogoRef = useRef(catalogo.slice())
+  const accesoRef = useRef(null)
 
   const cerrada = estado === 'cerrada'
   const resumen = useMemo(() => resumenER(filas), [filas])
@@ -171,7 +173,11 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
     }
     const { error: err } = await supabase.from('evaluaciones').update({ estado: nuevo }).eq('id', evaluacion.id)
     if (err) setError(err.message)
-    else { setEstado(nuevo); setMensaje(nuevo === 'cerrada' ? 'Evaluación cerrada.' : 'Evaluación reabierta.') }
+    else {
+      setEstado(nuevo)
+      setMensaje(nuevo === 'cerrada' ? 'Evaluación cerrada. Más abajo puedes dar acceso al centro.' : 'Evaluación reabierta.')
+      if (nuevo === 'cerrada') setTimeout(() => accesoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
+    }
   }
 
   function volver() {
@@ -384,6 +390,10 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
           )
         })}
       </fieldset>
+
+      <div ref={accesoRef} style={{ marginTop: 28 }}>
+        <AccesoEvaluacion supabase={supabase} evaluacion={evaluacion} resaltar={cerrada} />
+      </div>
     </div>
   )
 }
