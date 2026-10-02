@@ -3,10 +3,12 @@ import { supabase, configOk } from './supabaseClient'
 import Login from './Login'
 import Centros from './Centros'
 import Evaluaciones from './Evaluaciones'
+import Pac from './Pac'
 import ImportarDatos from './ImportarDatos'
 
 const SECCIONES = [
   { id: 'evaluaciones', texto: 'Evaluaciones' },
+  { id: 'pac', texto: 'PAC' },
   { id: 'centros', texto: 'Centros' },
   { id: 'importar', texto: 'Importar datos' },
 ]
@@ -66,6 +68,7 @@ export default function App() {
 
       <main className="contenido">
         {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} />}
+        {seccion === 'pac' && <Pac supabase={supabase} />}
         {seccion === 'centros' && <Centros supabase={supabase} />}
         {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
       </main>

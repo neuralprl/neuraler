@@ -2,6 +2,7 @@
 // Las funciones de datos y HTML son puras; las de Excel y Word cargan su librería solo al usarlas.
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
 import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
+import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC } from './pacLogic.js'
 
 export { fechaES }
 
@@ -226,6 +227,120 @@ export async function excelPAP(ev, filasPlan) {
   ws.autoFilter = { from: 'A5', to: `K${Math.max(5, 5 + filasPlan.length)}` }
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
 
+  const buf = await wb.xlsx.writeBuffer()
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+
+// ---------- PAC (visita al centro): incidencias ----------
+export function nombreArchivoPAC(ev, ext) {
+  const slug = (t) => quitarAcentos(t).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return `PAC_${slug(ev.centro.codigo)}_${ev.fecha}.${ext}`
+}
+
+// items: puntos de la lista; resp: { item_id: respuesta }. Devuelve las incidencias, de más a menos urgentes.
+export function filasPAC(items, resp) {
+  return items
+    .filter((it) => resp[it.id]?.resultado === 'no_cumple')
+    .map((it) => ({ ...resp[it.id], bloque: it.bloque, seccion: it.seccion, punto: it.punto, orden: it.orden }))
+    .sort((a, b) =>
+      ORDEN_PRIORIDAD_PAC.indexOf(a.prioridad) - ORDEN_PRIORIDAD_PAC.indexOf(b.prioridad) || (a.orden ?? 0) - (b.orden ?? 0))
+}
+
+export function textoEstadoPAC(f) {
+  const fecha = f.fecha_realizacion ? ` el ${fechaES(f.fecha_realizacion)}` : ''
+  if (f.estado_accion === 'realizada') return `Realizada${fecha}`
+  if (f.estado_accion === 'alternativa') {
+    return `Medida alternativa${fecha}${f.medida_alternativa ? `: ${f.medida_alternativa}` : ''}`
+  }
+  return 'Pendiente'
+}
+
+export function textoResueltaPAC(f) {
+  if (f.estado_accion === 'pendiente') return ''
+  if (f.resuelta_estado === 'resuelta') return f.fecha_resuelta ? `Resuelta el ${fechaES(f.fecha_resuelta)}` : 'Resuelta'
+  return 'Pendiente de comprobar'
+}
+
+const etiquetaPrioridad = (p) => {
+  const x = PRIORIDADES_PAC[p]
+  return x ? `${x.etiqueta} (${x.detalle})` : ''
+}
+
+export function htmlPAC(ev, filas) {
+  const trs = filas.map((f) => `<tr>
+  <td style="font-weight:bold;color:${PRIORIDADES_PAC[f.prioridad]?.color ?? '#000'}">${esc(etiquetaPrioridad(f.prioridad))}</td>
+  <td>${esc(f.bloque)}${f.seccion ? ` · ${esc(f.seccion)}` : ''}</td>
+  <td>${esc(f.punto)}</td>
+  <td>${esc(f.observaciones ?? '')}</td>
+  <td>${esc(f.responsable ?? '')}</td>
+  <td>${esc(f.coste ?? '')}</td>
+  <td>${esc(fechaES(f.plazo))}</td>
+  <td>${esc(textoEstadoPAC(f))}</td>
+  <td>${esc(textoResueltaPAC(f))}</td>
+</tr>`).join('')
+  const cuerpo = `<h1>Planificación de la acción correctiva (PAC)</h1>
+<div class="meta">
+  <p><b>Centro:</b> ${esc(ev.centro.codigo)} · ${esc(ev.centro.nombre)}</p>
+  <p><b>Fecha de la visita:</b> ${esc(fechaES(ev.fecha))}</p>
+  <p><b>Incidencias:</b> ${filas.length}</p>
+</div>
+${filas.length ? `<table>
+  <thead><tr><th>Prioridad</th><th>Bloque</th><th>Punto</th><th>Observaciones</th><th>Responsable</th><th>Coste</th><th>Plazo</th><th>Estado</th><th>Comprobación</th></tr></thead>
+  <tbody>${trs}</tbody>
+</table>` : '<p>No se han registrado incidencias en la visita.</p>'}`
+  return documentoHTML(nombreArchivoPAC(ev, 'pdf').replace(/\.pdf$/, ''), cuerpo, true)
+}
+
+export async function excelPAC(ev, filas) {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('PAC')
+  const fuente = { name: 'Arial', size: 10 }
+  const borde = { style: 'thin', color: { argb: 'FF999999' } }
+  const bordes = { top: borde, left: borde, bottom: borde, right: borde }
+  ws.columns = [{ width: 18 }, { width: 34 }, { width: 60 }, { width: 40 }, { width: 22 }, { width: 24 }, { width: 13 }, { width: 38 }, { width: 24 }]
+  ws.getCell('A1').value = 'Planificación de la acción correctiva (PAC)'
+  ws.getCell('A1').font = { name: 'Arial', size: 14, bold: true }
+  ws.getCell('A2').value = `Centro: ${ev.centro.codigo} · ${ev.centro.nombre}`
+  ws.getCell('A3').value = `Fecha de la visita: ${fechaES(ev.fecha)}   ·   Incidencias: ${filas.length}`
+  ;['A2', 'A3'].forEach((c) => { ws.getCell(c).font = fuente })
+  const cab = ['Prioridad', 'Bloque', 'Punto', 'Observaciones', 'Responsable', 'Coste', 'Plazo', 'Estado', 'Comprobación']
+  cab.forEach((t, i) => {
+    const c = ws.getRow(5).getCell(i + 1)
+    c.value = t
+    c.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    c.border = bordes
+  })
+  filas.forEach((f, i) => {
+    const fila = ws.getRow(6 + i)
+    const valores = [
+      etiquetaPrioridad(f.prioridad),
+      f.bloque + (f.seccion ? ` · ${f.seccion}` : ''),
+      f.punto,
+      f.observaciones ?? '',
+      f.responsable ?? '',
+      f.coste ?? '',
+      f.plazo ? new Date(`${f.plazo}T00:00:00Z`) : null,
+      textoEstadoPAC(f),
+      textoResueltaPAC(f),
+    ]
+    valores.forEach((v, k) => {
+      const c = fila.getCell(k + 1)
+      c.value = v
+      c.font = fuente
+      c.border = bordes
+      c.alignment = { vertical: 'top', wrapText: true }
+    })
+    fila.getCell(7).numFmt = 'dd/mm/yyyy'
+    const color = (PRIORIDADES_PAC[f.prioridad]?.color ?? '#000000').slice(1).toUpperCase()
+    fila.getCell(1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF' + color } }
+  })
+  ws.views = [{ state: 'frozen', ySplit: 5 }]
+  ws.autoFilter = { from: 'A5', to: `I${Math.max(5, 5 + filas.length)}` }
+  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
   const buf = await wb.xlsx.writeBuffer()
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
