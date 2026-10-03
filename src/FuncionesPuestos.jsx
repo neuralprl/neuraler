@@ -17,7 +17,6 @@ const fechaLarga = (iso) =>
 const ESTADO = {
   documento: { texto: "Evaluada en el documento", clase: "fun-e-doc" },
   matriz: { texto: "Evaluada con la matriz actual", clase: "fun-e-mat" },
-  nueva: { texto: "Evaluación nueva, por validar", clase: "fun-e-nueva" },
 };
 const ACT_POR_ID = Object.fromEntries(ACTIVIDADES_EVALUADAS.map((a) => [a.id, a]));
 const quitar = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -101,6 +100,11 @@ function VistaPuestos({ busca, irActividad, abierto, setAbierto }) {
                 <strong>Observación.</strong> {p.nota}
               </p>
             )}
+            {p.epi && (
+              <p>
+                <strong>EPI.</strong> {p.epi}
+              </p>
+            )}
             <h4>Actividades del puesto</h4>
             <div className="fun-chips">
               {p.actividades.map((id) => (
@@ -109,6 +113,36 @@ function VistaPuestos({ busca, irActividad, abierto, setAbierto }) {
                 </button>
               ))}
             </div>
+            {p.ajustes.length > 0 && (
+              <>
+                <h4>Valoraciones de este puesto distintas de las de la actividad</h4>
+                <ul className="fun-ajustes">
+                  {p.ajustes.map((x, i) => (
+                    <li key={i}>
+                      <button type="button" className="fun-enlace" onClick={() => irActividad(x.actividad_id)}>
+                        {x.actividad}
+                      </button>
+                      {" · "}
+                      <strong>{x.r}</strong> {x.condicion}:{" "}
+                      <span className="fun-vr-mini" style={{ background: COLOR_VR[x.VR] }}>
+                        {x.P}·{x.C} = {x.VR}
+                      </span>{" "}
+                      <small>(en la actividad, {x.base})</small>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {p.propios.length > 0 && (
+              <>
+                <h4>Riesgos propios del puesto</h4>
+                <div className="fun-conds">
+                  {p.propios.map((c, i) => (
+                    <Condicion key={i} c={c} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </details>
       ))}
@@ -235,7 +269,7 @@ export default function FuncionesPuestos() {
 
       {nPend > 0 && (
         <p className="fun-aviso" role="note">
-          {nPend} puestos tienen una redacción propuesta que falta confirmar. Las evaluaciones marcadas como nuevas también están por validar.
+          {nPend === 1 ? "Un puesto tiene" : `${nPend} puestos tienen`} una redacción propuesta que falta confirmar.
         </p>
       )}
 
@@ -311,6 +345,9 @@ const CSS = `
 .fun-chip{font:inherit;font-size:.85rem;padding:3px 10px;border:1px solid var(--f-linea);border-radius:14px;background:var(--f-fondo);color:var(--f-tinta);cursor:pointer;box-shadow:none}
 .fun-chip:hover{background:#e6ecf5}
 .fun-conds{display:flex;flex-direction:column;gap:6px}
+.fun-ajustes li{margin-bottom:6px}
+.fun-enlace{font:inherit;color:#1f3864;background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;box-shadow:none}
+.fun-vr-mini{color:#fff;font-weight:700;font-size:.78rem;border-radius:10px;padding:1px 8px}
 .fun-cond{border:1px solid var(--f-linea);border-radius:6px;background:#fff}
 .fun-cond>summary{cursor:pointer;display:flex;gap:10px;align-items:center;padding:7px 10px;list-style:none}
 .fun-cond>summary::-webkit-details-marker{display:none}

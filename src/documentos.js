@@ -3,6 +3,7 @@
 import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
 import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
 import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, nombreConsecuencia, nombreDeficiencia } from './pacLogic.js'
+import { AGRESORES, CONSECUENCIAS, ESTADOS, TIPOS } from './agresionesLogic.js'
 
 export { fechaES }
 
@@ -342,6 +343,52 @@ export async function excelPAC(ev, filas) {
   })
   ws.views = [{ state: 'frozen', ySplit: 5 }]
   ws.autoFilter = { from: 'A5', to: `I${Math.max(5, 5 + filas.length)}` }
+  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  const buf = await wb.xlsx.writeBuffer()
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+
+// ---------- Registro de agresiones ----------
+export async function excelAgresiones(nombreCentro, filas, nombresCentros = {}, todos = false) {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Agresiones')
+  const fuente = { name: 'Arial', size: 10 }
+  const borde = { style: 'thin', color: { argb: 'FF999999' } }
+  const bordes = { top: borde, left: borde, bottom: borde, right: borde }
+  const cab = ['Fecha', 'Hora', ...(todos ? ['Centro'] : []), 'Puesto', 'Lugar', 'Tipo', 'Quién agrede', 'Ref. agresor', 'Consecuencias', 'Parte de accidente', 'Comunicada a prevención', 'Estado', 'Qué ocurrió', 'Actuación', 'Medidas']
+  const anchos = [12, 8, ...(todos ? [34] : []), 24, 22, 26, 20, 12, 18, 12, 14, 10, 60, 45, 45]
+  ws.columns = anchos.map((width) => ({ width }))
+  ws.getCell('A1').value = 'Registro de agresiones'
+  ws.getCell('A1').font = { name: 'Arial', size: 14, bold: true }
+  ws.getCell('A2').value = `${nombreCentro} · ${filas.length} registros`
+  ws.getCell('A2').font = fuente
+  cab.forEach((t, i) => {
+    const c = ws.getRow(4).getCell(i + 1)
+    c.value = t
+    c.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    c.border = bordes
+  })
+  filas.forEach((a, i) => {
+    const v = [
+      a.fecha ? new Date(`${a.fecha}T00:00:00Z`) : null,
+      a.hora ? a.hora.slice(0, 5) : '',
+      ...(todos ? [nombresCentros[a.centro_id] ?? ''] : []),
+      a.puesto ?? '', a.lugar ?? '', TIPOS[a.tipo] ?? '', AGRESORES[a.agresor] ?? '', a.agresor_ref ?? '',
+      CONSECUENCIAS[a.consecuencias] ?? '', a.parte_accidente ? 'Sí' : 'No', a.comunicada_prevencion ? 'Sí' : 'No', ESTADOS[a.estado] ?? '',
+      a.descripcion ?? '', a.actuacion ?? '', a.medidas ?? '',
+    ]
+    v.forEach((x, k) => {
+      const c = ws.getRow(5 + i).getCell(k + 1)
+      c.value = x; c.font = fuente; c.border = bordes; c.alignment = { vertical: 'top', wrapText: true }
+    })
+    ws.getRow(5 + i).getCell(1).numFmt = 'dd/mm/yyyy'
+  })
+  ws.views = [{ state: 'frozen', ySplit: 4 }]
+  ws.autoFilter = { from: 'A4', to: `${String.fromCharCode(64 + cab.length)}${Math.max(4, 4 + filas.length)}` }
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
   const buf = await wb.xlsx.writeBuffer()
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })

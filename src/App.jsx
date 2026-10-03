@@ -6,12 +6,14 @@ import Evaluaciones from './Evaluaciones'
 import Pac from './Pac'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
+import Agresiones from './Agresiones'
 import AppCentro from './AppCentro'
 import ImportarDatos from './ImportarDatos'
 
 const SECCIONES = [
   { id: 'evaluaciones', texto: 'Evaluaciones' },
   { id: 'pac', texto: 'PAC' },
+  { id: 'agresiones', texto: 'Agresiones' },
   { id: 'centros', texto: 'Centros' },
   { id: 'metodologia', texto: 'Metodología' },
   { id: 'funciones', texto: 'Funciones de cada puesto' },
@@ -75,6 +77,7 @@ export default function App() {
       <main className="contenido">
         {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} />}
         {seccion === 'pac' && <Pac supabase={supabase} />}
+        {seccion === 'agresiones' && <Agresiones supabase={supabase} />}
         {seccion === 'centros' && <Centros supabase={supabase} />}
         {seccion === 'metodologia' && <MetodologiaTab />}
         {seccion === 'funciones' && <FuncionesPuestos />}

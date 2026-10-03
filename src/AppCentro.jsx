@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PlanPreventivo from './PlanPreventivo'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
+import Agresiones from './Agresiones'
 import { FormIncidencia } from './Pac'
 import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
 import { descargar, filasPAC, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
@@ -255,6 +256,7 @@ export default function AppCentro({ supabase, sesion }) {
     { id: 'evaluacion', texto: 'Evaluación' },
     { id: 'pap', texto: 'Plan de acción (PAP)' },
     { id: 'pac', texto: 'Visitas PAC' },
+    { id: 'agresiones', texto: 'Registro de agresiones' },
     { id: 'metodologia', texto: 'Metodología' },
     { id: 'funciones', texto: 'Funciones de cada puesto' },
   ]
@@ -301,6 +303,7 @@ export default function AppCentro({ supabase, sesion }) {
               <PlanPreventivo supabase={supabase} evaluacion={sel} soloEstado onVolver={() => setSeccion('evaluacion')} />
             )}
             {seccion === 'pac' && <PacCentro supabase={supabase} centroId={sel.centro.id} />}
+            {seccion === 'agresiones' && <Agresiones supabase={supabase} centro={sel.centro} />}
             {seccion === 'metodologia' && <MetodologiaTab />}
             {seccion === 'funciones' && <FuncionesPuestos />}
           </>
