@@ -5,6 +5,7 @@
 import { ORDEN_VR, vrDe } from './evalLogic.js'
 import { limpiar } from './importLogic.js'
 import { COSTE_POR_DEFECTO, RESPONSABLE_DEFECTO, plazoPorDefecto } from './planLogic.js'
+import { agruparMedidas } from './medidasSimilares.js'
 
 const sinAcentos = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
@@ -21,15 +22,17 @@ export const masGrave = (a, b) => (!a ? b : !b ? a : ORDEN_VR[a] <= ORDEN_VR[b] 
 
 // filas: filas de evaluacion_riesgos de los puestos del centro.
 // puestoDe: Map evaluacion_id -> { puesto_id, nombre }.
+// Las medidas iguales o parecidas (medidasSimilares.js) se unen en una sola acción con la redacción más completa.
 export function consolidarPAP(filas, puestoDe) {
   const m = new Map()
+  const { grupos, deTexto } = agruparMedidas(filas.flatMap((f) => f.medidas ?? []))
   for (const f of filas) {
     const vr = vrDe(f.p, f.c)
     const pu = puestoDe.get(f.evaluacion_id)
     if (!vr || !pu) continue
     const medidas = (f.medidas ?? []).map((t) => String(t ?? '').trim()).filter(Boolean)
     const items = medidas.length
-      ? medidas.map((t) => ({ clave: `m:${claveMedida(t)}`, texto: t, sin: false }))
+      ? medidas.map((t) => { const g = grupos[deTexto.get(t)]; return { clave: `m:${claveMedida(g.texto)}`, texto: g.texto, variantes: g.variantes, sin: false } })
       : [{ clave: `r:${f.riesgo_id}|${claveMedida(f.condicion)}`, texto: `Definir medidas preventivas para ${f.riesgo_id} · ${f.riesgo_nombre}: ${limpiar(f.condicion ?? '')}`, sin: true }]
     const vistas = new Set()
     for (const it of items) {
@@ -37,7 +40,7 @@ export function consolidarPAP(filas, puestoDe) {
       vistas.add(it.clave)
       let a = m.get(it.clave)
       if (!a) {
-        a = { clave: it.clave, medida: it.texto, sin_medida: it.sin, vr, riesgos: new Map(), puestos: new Map(), origen: [] }
+        a = { clave: it.clave, medida: it.texto, variantes: it.variantes ?? [], sin_medida: it.sin, vr, riesgos: new Map(), puestos: new Map(), origen: [] }
         m.set(it.clave, a)
       }
       if (it.texto.length > a.medida.length) a.medida = it.texto       // la redacción más completa
@@ -52,6 +55,7 @@ export function consolidarPAP(filas, puestoDe) {
   return [...m.values()].map((a) => ({
     clave: a.clave,
     medida: a.medida,
+    variantes: [...a.variantes].sort((x, y) => x.localeCompare(y, 'es')),
     sin_medida: a.sin_medida,
     vr: a.vr,
     riesgos: [...a.riesgos].map(([id, nombre]) => ({ id, nombre })).sort((x, y) => num(x.id) - num(y.id)),
@@ -82,19 +86,31 @@ export function heredarGestion(origen, vr, fechaEval) {
   }
 }
 
+// Claves con las que se reconoce una acción: la suya y la de cada redacción que une.
+const clavesDe = (x) => new Set([x.clave, ...(x.variantes ?? []).map((t) => `m:${claveMedida(t)}`)])
+
 // Qué hay que cambiar en pap_acciones para que refleje la evaluación actual.
-// Se conservan responsable, coste, plazo y estados de las acciones que ya existían.
+// Se conservan responsable, coste, plazo y estados de las acciones que ya existían. Una acción guardada se
+// reconoce aunque ahora una más redacciones; si se unen varias guardadas, se queda la pendiente (o la primera)
+// y las demás se borran si estaban pendientes o quedan como histórico si estaban realizadas.
 export function planSincronizacion(calculadas, guardadas, evcId, fechaEval) {
-  const g = new Map(guardadas.map((x) => [x.clave, x]))
+  const porClave = new Map()
+  guardadas.forEach((g) => clavesDe(g).forEach((k) => { if (!porClave.has(k)) porClave.set(k, []); porClave.get(k).push(g) }))
+  const usadas = new Set()
   const insertar = []
   const actualizar = []
   const retirar = []
-  const enCalculo = new Set()
+  const historico = (old) => (old.estado_accion === 'realizada'
+    ? (old.vigente !== false && actualizar.push({ id: old.id, evaluacion_centro_id: evcId, clave: old.clave, vigente: false }))
+    : retirar.push(old.id))
+
   for (const a of calculadas) {
-    enCalculo.add(a.clave)
-    const base = { medida: a.medida, sin_medida: a.sin_medida, vr: a.vr, riesgos: a.riesgos, puestos: a.puestos, vigente: true }
-    const old = g.get(a.clave)
-    if (!old) { insertar.push({ evaluacion_centro_id: evcId, clave: a.clave, ...base, ...heredarGestion(a.origen, a.vr, fechaEval) }); continue }
+    const base = { medida: a.medida, variantes: a.variantes ?? [], sin_medida: a.sin_medida, vr: a.vr, riesgos: a.riesgos, puestos: a.puestos, vigente: true }
+    const candidatas = [...new Set([...clavesDe(a)].flatMap((k) => porClave.get(k) ?? []))].filter((g) => !usadas.has(g.id))
+    if (!candidatas.length) { insertar.push({ evaluacion_centro_id: evcId, clave: a.clave, ...base, ...heredarGestion(a.origen, a.vr, fechaEval) }); continue }
+    const old = candidatas.find((g) => g.estado_accion !== 'realizada' && g.vigente !== false) ?? candidatas.find((g) => g.vigente !== false) ?? candidatas[0]
+    candidatas.forEach((g) => usadas.add(g.id))
+    candidatas.filter((g) => g !== old).forEach(historico)
     const cambios = {}
     for (const k of Object.keys(base)) {
       if (JSON.stringify(old[k] ?? null) !== JSON.stringify(base[k])) cambios[k] = base[k]
@@ -103,13 +119,9 @@ export function planSincronizacion(calculadas, guardadas, evcId, fechaEval) {
     if (cambios.vr && old.estado_accion !== 'realizada' && (!old.plazo || old.plazo === plazoPorDefecto(old.vr, fechaEval))) {
       cambios.plazo = plazoPorDefecto(a.vr, fechaEval)
     }
-    if (Object.keys(cambios).length) actualizar.push({ id: old.id, evaluacion_centro_id: evcId, clave: a.clave, ...cambios })
+    if (Object.keys(cambios).length) actualizar.push({ id: old.id, evaluacion_centro_id: evcId, clave: old.clave, ...cambios })
   }
-  for (const old of guardadas) {
-    if (enCalculo.has(old.clave)) continue
-    if (old.estado_accion === 'realizada') { if (old.vigente !== false) actualizar.push({ id: old.id, evaluacion_centro_id: evcId, clave: old.clave, vigente: false }) }
-    else retirar.push(old.id)
-  }
+  guardadas.filter((g) => !usadas.has(g.id)).forEach(historico)
   return { insertar, actualizar, retirar }
 }
 
@@ -121,6 +133,7 @@ export function resumenPAPCentro(acciones) {
     total: vig.length,
     pendientes: vig.filter((a) => a.estado_accion !== 'realizada').length,
     unidas,
+    redacciones: vig.filter((a) => (a.variantes ?? []).length > 1).length,
     conMenor: vig.filter((a) => puestosConMenorPrioridad(a).length > 0).length,
     sinMedida: vig.filter((a) => a.sin_medida).length,
   }

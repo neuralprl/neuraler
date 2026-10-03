@@ -20,6 +20,12 @@ function Cabeza({ a, totalPuestos }) {
   return (
     <div style={{ marginBottom: 10 }}>
       <strong style={{ color: a.sin_medida ? '#b00020' : undefined }}>{a.medida}</strong>
+      {(a.variantes ?? []).length > 1 && (
+        <details style={{ fontSize: 13, marginTop: 2 }}>
+          <summary style={{ cursor: 'pointer', opacity: 0.8 }}>Une {a.variantes.length} redacciones parecidas</summary>
+          <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>{a.variantes.map((v) => <li key={v}>{v}</li>)}</ul>
+        </details>
+      )}
       <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
         {(a.riesgos ?? []).map((r) => `${r.id} · ${r.nombre}`).join(' · ')}
       </div>
@@ -30,6 +36,7 @@ function Cabeza({ a, totalPuestos }) {
       {menor.length > 0 && (
         <div style={{ fontSize: 13, marginTop: 4, color: '#7a4b00', background: '#fde9c4', padding: '4px 8px', borderRadius: 6, display: 'inline-block' }}>
           Se aplica la prioridad más alta ({a.vr}). En algunos puestos es más baja: {menor.map((p) => `${p.nombre} (${p.vr})`).join(', ')}.
+          {' '}Si es el mismo riesgo, revisa la matriz en «Actualizar → Revisar valoraciones de la matriz».
         </div>
       )}
     </div>
@@ -158,8 +165,8 @@ export default function PapCentro({ supabase, evc, soloEstado = false, onVolver 
         <b>{evc.centro.codigo} · {evc.centro.nombre}</b> · evaluación del {fechaES(evc.fecha)} · {totalPuestos} puestos
       </p>
       <p style={{ fontSize: 14, opacity: 0.85, maxWidth: 820 }}>
-        Cada medida sale una sola vez para todo el centro. Si aparece en varios puestos con prioridades distintas,
-        se aplica la más alta, del lado de la seguridad, y se indica en qué puestos sería más baja.
+        Cada medida sale una sola vez para todo el centro, aunque esté redactada de formas parecidas. Si aparece en varios
+        puestos con prioridades distintas, se aplica la más alta, del lado de la seguridad, y se indica en qué puestos sería más baja.
       </p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
@@ -174,7 +181,7 @@ export default function PapCentro({ supabase, evc, soloEstado = false, onVolver 
 
       {acciones && (
         <p style={{ fontSize: 14 }}>
-          <b>{r.total}</b> acciones · <b>{r.pendientes}</b> pendientes · <b>{r.unidas}</b> unen varios puestos
+          <b>{r.total}</b> acciones · <b>{r.pendientes}</b> pendientes · <b>{r.unidas}</b> unen varios puestos · <b>{r.redacciones}</b> unen redacciones parecidas
           {r.conMenor > 0 && <> · <b>{r.conMenor}</b> con prioridad más baja en algún puesto</>}
           {r.sinMedida > 0 && <span style={{ color: '#b00020' }}> · <b>{r.sinMedida}</b> riesgos sin medidas: complétalos en la evaluación del puesto</span>}
         </p>
