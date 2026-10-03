@@ -2,7 +2,10 @@
 
 export function textoCelda(v) {
   if (v == null) return ''
-  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  if (v instanceof Date) {
+    if (v.getUTCFullYear() <= 1900) return `${String(v.getUTCHours()).padStart(2, '0')}:${String(v.getUTCMinutes()).padStart(2, '0')}`   // hora sin fecha
+    return v.toISOString().slice(0, 10)
+  }
   if (typeof v === 'object') {
     if (v.richText) return v.richText.map((t) => t.text).join('')
     if ('result' in v) return textoCelda(v.result)

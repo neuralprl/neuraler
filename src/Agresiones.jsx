@@ -5,6 +5,8 @@ import {
 } from './agresionesLogic'
 import { PUESTOS_FUNCIONES } from './funcionesContenido'
 import { descargar, excelAgresiones } from './documentos'
+import BarraAlta from './BarraAlta'
+import ImportarAgresiones from './ImportarAgresiones'
 
 // Uso:
 //   Técnico:      <Agresiones supabase={supabase} />                       (elige el centro o ve todos)
@@ -108,6 +110,7 @@ export default function Agresiones({ supabase, centro }) {
   const [errores, setErrores] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [vista, setVista] = useState('lista')
   const hoy = hoyISO()
 
   useEffect(() => {
@@ -160,6 +163,13 @@ export default function Agresiones({ supabase, centro }) {
     } catch (err) { setError('No se pudo generar el Excel: ' + err.message) }
   }
 
+  if (vista === 'importar') {
+    return <ImportarAgresiones supabase={supabase} centros={centroId ? centros.filter((c) => c.id === centroId) : centros}
+      onTerminado={cargar} onVolver={() => { setVista('lista'); cargar() }} />
+  }
+
+  const ambito = esCentro ? 'en el centro' : centroId ? 'en este centro' : `en ${centros.length} ${centros.length === 1 ? 'centro' : 'centros'}`
+
   return (
     <div style={{ textAlign: 'left' }}>
       <h2>Registro de Agresiones</h2>
@@ -176,6 +186,13 @@ export default function Agresiones({ supabase, centro }) {
         )}
 
       {error && <p style={aviso}>{error}</p>}
+
+      <BarraAlta
+        resumen={<span><b>{resumen.total}</b> {resumen.total === 1 ? 'agresión registrada' : 'agresiones registradas'} {ambito} · <b>{resumen.abiertas}</b> abiertas</span>}
+        onManual={() => { setErrores([]); setEdicion(agresionNueva(centroId, hoy)) }} textoManual="Registrar agresión manualmente"
+        deshabilitadoManual={!!edicion || (!esCentro && !centros.length)}
+        onMasivo={() => { setEdicion(null); setVista('importar') }} textoMasivo="Subida masiva desde Excel"
+      />
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '10px 0' }}>
         <Tarjeta titulo="Agresiones en 12 meses" valor={resumen.ultimoAnio} nota={`${resumen.total} en total`} />
@@ -197,7 +214,6 @@ export default function Agresiones({ supabase, centro }) {
       )}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end', marginBottom: 10 }}>
-        <button onClick={() => { setErrores([]); setEdicion(agresionNueva(centroId, hoy)) }} disabled={!!edicion || (!esCentro && !centros.length)} style={{ padding: '8px 16px', fontWeight: 600 }}>Nueva agresión</button>
         <label style={campo}><span>Año</span><select value={filtro.anio} onChange={(e) => setFiltro({ ...filtro, anio: e.target.value })}><option value="">Todos</option>{anios.map((a) => <option key={a} value={a}>{a}</option>)}</select></label>
         <label style={campo}><span>Tipo</span><select value={filtro.tipo} onChange={(e) => setFiltro({ ...filtro, tipo: e.target.value })}><option value="">Todos</option>{Object.entries(TIPOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>
         <label style={campo}><span>Estado</span><select value={filtro.estado} onChange={(e) => setFiltro({ ...filtro, estado: e.target.value })}><option value="">Todos</option>{Object.entries(ESTADOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>

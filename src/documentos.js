@@ -4,6 +4,7 @@ import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
 import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
 import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, nombreConsecuencia, nombreDeficiencia } from './pacLogic.js'
 import { AGRESORES, CONSECUENCIAS, ESTADOS, TIPOS } from './agresionesLogic.js'
+import { COLUMNAS as COLUMNAS_AGRESIONES, OBLIGATORIAS as OBLIGATORIAS_AGRESIONES } from './agresionesImport.js'
 
 export { fechaES }
 
@@ -483,6 +484,152 @@ export async function excelAgresiones(nombreCentro, filas, nombresCentros = {}, 
   ws.views = [{ state: 'frozen', ySplit: 4 }]
   ws.autoFilter = { from: 'A4', to: `${String.fromCharCode(64 + cab.length)}${Math.max(4, 4 + filas.length)}` }
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  const buf = await wb.xlsx.writeBuffer()
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+// Plantilla para la subida masiva de agresiones: hoja «agresiones» con listas desplegables,
+// hoja «instrucciones» y hoja «listas» (centros, puestos y valores admitidos).
+// centros: [{codigo, nombre}]; puestos: nombres de los puestos.
+export const FILAS_PLANTILLA_AGRESIONES = 500
+export async function plantillaAgresiones(centros, puestos = []) {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  const fuente = { name: 'Arial', size: 10 }
+  const negrita = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+  const relleno = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
+  const N = FILAS_PLANTILLA_AGRESIONES
+  const ultima = N + 1
+
+  const ws = wb.addWorksheet('agresiones', { views: [{ state: 'frozen', ySplit: 1 }] })
+  const wi = wb.addWorksheet('instrucciones')
+  const wl = wb.addWorksheet('listas')
+
+  // ---- listas ----
+  const listas = [
+    ['Código del centro', centros.map((c) => c.codigo)],
+    ['Nombre del centro', centros.map((c) => c.nombre ?? '')],
+    ['Puesto', puestos],
+    ['Tipo', Object.values(TIPOS)],
+    ['Quién agrede', Object.values(AGRESORES)],
+    ['Consecuencias', Object.values(CONSECUENCIAS)],
+    ['Sí / No', ['Sí', 'No']],
+    ['Estado', Object.values(ESTADOS)],
+  ]
+  const rango = {}
+  listas.forEach(([titulo, valores], k) => {
+    const col = wl.getColumn(k + 1)
+    col.width = k === 1 ? 45 : 28
+    const c = wl.getCell(1, k + 1)
+    c.value = titulo; c.font = negrita; c.fill = relleno('FF1F3864')
+    valores.forEach((v, i) => { wl.getCell(i + 2, k + 1).value = v; wl.getCell(i + 2, k + 1).font = fuente })
+    const letra = col.letter
+    rango[titulo] = `'listas'!$${letra}$2:$${letra}$${Math.max(2, valores.length + 1)}`
+  })
+  wl.views = [{ state: 'frozen', ySplit: 1 }]
+
+  // ---- hoja de datos ----
+  const anchos = {
+    'Código del centro': 16, Fecha: 12, Hora: 8, Lugar: 20, Puesto: 26, Tipo: 30, 'Quién agrede': 22, 'Ref. agresor': 12,
+    Consecuencias: 18, 'Parte de accidente': 12, 'Comunicada a prevención': 14, Estado: 10, 'Qué ocurrió': 50, 'Actuación': 40, Medidas: 40,
+  }
+  ws.columns = COLUMNAS_AGRESIONES.map((h) => ({ header: h, key: h, width: anchos[h] ?? 16 }))
+  ws.getRow(1).height = 32
+  ws.getRow(1).eachCell((c) => {
+    const obligatoria = OBLIGATORIAS_AGRESIONES.includes(c.value)
+    c.font = negrita
+    c.fill = relleno(obligatoria ? 'FFC00000' : 'FF1F3864')
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  })
+  const lista = (titulo, estricta = true) => ({
+    type: 'list', allowBlank: true, formulae: [rango[titulo]],
+    showErrorMessage: true, errorStyle: estricta ? 'stop' : 'information',
+    errorTitle: 'Valor no válido', error: estricta ? 'Elige un valor de la lista.' : 'No está en la lista de puestos. Se guardará tal como lo escribas.',
+  })
+  const validacion = {
+    'Código del centro': lista('Código del centro'),
+    Fecha: { type: 'date', operator: 'lessThanOrEqual', allowBlank: true, formulae: ['TODAY()'], showErrorMessage: true, errorTitle: 'Fecha no válida', error: 'Escribe la fecha como dd/mm/aaaa. No puede ser futura.' },
+    Puesto: lista('Puesto', false),
+    Tipo: lista('Tipo'),
+    'Quién agrede': lista('Quién agrede'),
+    'Ref. agresor': { type: 'textLength', operator: 'lessThanOrEqual', allowBlank: true, formulae: [12], showErrorMessage: true, errorTitle: 'Demasiado largo', error: 'Solo un código o unas iniciales (12 caracteres como máximo), nunca el nombre.' },
+    Consecuencias: lista('Consecuencias'),
+    'Parte de accidente': lista('Sí / No'),
+    'Comunicada a prevención': lista('Sí / No'),
+    Estado: lista('Estado'),
+  }
+  const formato = { Fecha: 'dd/mm/yyyy', Hora: 'hh:mm' }
+  COLUMNAS_AGRESIONES.forEach((h, k) => {
+    for (let r = 2; r <= ultima; r++) {
+      const c = ws.getCell(r, k + 1)
+      c.font = fuente
+      if (formato[h]) c.numFmt = formato[h]
+      if (validacion[h]) c.dataValidation = validacion[h]
+      if (['Qué ocurrió', 'Actuación', 'Medidas'].includes(h)) c.alignment = { vertical: 'top', wrapText: true }
+    }
+  })
+
+  // ---- instrucciones ----
+  wi.columns = [{ width: 26 }, { width: 14 }, { width: 70 }]
+  wi.getCell('A1').value = 'Subida masiva de agresiones: instrucciones'
+  wi.getCell('A1').font = { name: 'Arial', size: 14, bold: true }
+  const notas = [
+    'Rellena una fila por agresión en la hoja «agresiones», desde la fila 2. No cambies los títulos de las columnas.',
+    `Caben ${N} filas. Si necesitas más, sube el archivo en varias veces.`,
+    'Las columnas con título rojo son obligatorias. Las que tienen lista desplegable solo admiten los valores de la lista.',
+    'No escribas nombres ni datos de salud identificables: usa el puesto y un código o unas iniciales para el agresor.',
+    'Antes de cargar verás una vista previa. Las filas con errores no se cargan, y las agresiones que ya están registradas (mismo centro, fecha, hora, tipo, puesto, agresor y descripción) se saltan.',
+  ]
+  notas.forEach((t, i) => {
+    const c = wi.getCell(3 + i, 1)
+    c.value = t; c.font = fuente
+    wi.mergeCells(3 + i, 1, 3 + i, 3)
+    c.alignment = { wrapText: true, vertical: 'top' }
+    wi.getRow(3 + i).height = 28
+  })
+  const filaCab = 4 + notas.length
+  ;['Columna', 'Obligatoria', 'Qué poner'].forEach((t, k) => {
+    const c = wi.getCell(filaCab, k + 1)
+    c.value = t; c.font = negrita; c.fill = relleno('FF1F3864')
+  })
+  const explica = {
+    'Código del centro': 'Código del centro tal como aparece en la aplicación (lista desplegable; en la hoja «listas» está el nombre de cada uno).',
+    Fecha: 'Fecha de la agresión, dd/mm/aaaa. No puede ser futura.',
+    Hora: 'Opcional, hh:mm (por ejemplo, 14:30).',
+    Lugar: 'Sala, pasillo, comedor, habitación...',
+    Puesto: 'Puesto de la persona agredida. Mejor de la lista; si no está, escríbelo.',
+    Tipo: `Uno de estos: ${Object.values(TIPOS).join('; ')}.`,
+    'Quién agrede': `Uno de estos: ${Object.values(AGRESORES).join('; ')}. Si se deja vacío: Usuario.`,
+    'Ref. agresor': 'Código o iniciales (máximo 12 caracteres). Sirve para detectar agresiones repetidas.',
+    Consecuencias: `Uno de estos: ${Object.values(CONSECUENCIAS).join('; ')}. Si se deja vacío: Sin lesión.`,
+    'Parte de accidente': 'Sí o No (vacío = No). Una lesión con baja exige Sí.',
+    'Comunicada a prevención': 'Sí o No (vacío = No).',
+    Estado: `${Object.values(ESTADOS).join(' o ')}. Si se deja vacío: Abierta.`,
+    'Qué ocurrió': 'Descripción breve de los hechos.',
+    'Actuación': 'Cómo se actuó en el momento.',
+    Medidas: 'Medidas adoptadas o propuestas.',
+  }
+  COLUMNAS_AGRESIONES.forEach((h, i) => {
+    const r = wi.getRow(filaCab + 1 + i)
+    r.getCell(1).value = h
+    r.getCell(2).value = OBLIGATORIAS_AGRESIONES.includes(h) ? 'Sí' : 'No'
+    r.getCell(3).value = explica[h] ?? ''
+    r.eachCell((c) => { c.font = fuente; c.alignment = { wrapText: true, vertical: 'top' } })
+  })
+  const filaEj = filaCab + COLUMNAS_AGRESIONES.length + 2
+  wi.getCell(filaEj, 1).value = 'Ejemplo de fila'
+  wi.getCell(filaEj, 1).font = { name: 'Arial', size: 10, bold: true }
+  const ejemplo = [
+    centros[0]?.codigo ?? 'C001', '15/09/2026', '14:30', 'Comedor', puestos.find((x) => /auxiliar de enfermer/i.test(x)) ?? puestos[0] ?? 'Enfermero/a', TIPOS.fisica, AGRESORES.usuario, 'U-07',
+    CONSECUENCIAS.lesion_sin_baja, 'No', 'Sí', ESTADOS.abierta, 'Empujón al separar a dos usuarios.', 'Contención verbal y aviso al médico de guardia.', 'Revisar la ratio en el comedor.',
+  ]
+  COLUMNAS_AGRESIONES.forEach((h, i) => {
+    const r = wi.getRow(filaEj + 1 + i)
+    r.getCell(1).value = h; r.getCell(3).value = ejemplo[i]
+    r.eachCell((c) => { c.font = fuente })
+  })
+
+  wb.views = [{ activeTab: 0 }]
   const buf = await wb.xlsx.writeBuffer()
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
