@@ -18,7 +18,7 @@ export default function PapLista({ supabase, soloEstado = false, inicial = null 
 
   async function cargar() {
     try {
-      const e = (await leerTodo(() => supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').order('fecha', { ascending: false })))
+      const e = (await leerTodo(() => supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').in('estado', ['borrador', 'cerrada']).order('fecha', { ascending: false })))
         .map((x) => ({ id: x.id, fecha: x.fecha, estado: x.estado, centro: x.centros, puesto: x.puestos }))
       const f = await leerTodo(() => supabase.from('evaluacion_riesgos').select('id,evaluacion_id,riesgo_id,riesgo_nombre,p,c,plazo,estado_accion').order('id'))
       setEvals(e); setFilas(f)

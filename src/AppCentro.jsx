@@ -263,7 +263,7 @@ export default function AppCentro({ supabase, sesion }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)')
+    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').in('estado', ['borrador', 'cerrada'])
       .order('fecha', { ascending: false })
       .then(({ data, error: err }) => {
         if (err) { setError(err.message); return }

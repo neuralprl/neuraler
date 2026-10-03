@@ -5,7 +5,8 @@ import {
 import AccesoEvaluacion from './AccesoEvaluacion'
 
 // Evaluación de riesgos (ER): tabla principal editable.
-// Props: supabase, evaluacion {id, fecha, estado, centro, puesto}, filasIniciales, catalogo, riesgos, onVolver
+// Props: supabase, evaluacion {id, fecha, estado, centro, puesto}, filasIniciales, catalogo, riesgos, onVolver, textoVolver
+// Es la evaluación de UN puesto dentro de la evaluación del centro: «cerrada» significa puesto evaluado.
 
 const OPC_P = [['B', 'Baja'], ['M', 'Media'], ['A', 'Alta']]
 const OPC_C = [['LD', 'Ligeramente dañina'], ['D', 'Dañina'], ['ED', 'Extremadamente dañina']]
@@ -33,7 +34,7 @@ function InsigniaVR({ p, c }) {
   )
 }
 
-export default function EvaluacionER({ supabase, evaluacion, filasIniciales, catalogo, riesgos, onVolver }) {
+export default function EvaluacionER({ supabase, evaluacion, filasIniciales, catalogo, riesgos, onVolver, textoVolver = 'Volver a la lista' }) {
   const [filas, setFilas] = useState(filasIniciales)
   const [estado, setEstado] = useState(evaluacion.estado)
   const [sucio, setSucio] = useState(false)
@@ -167,14 +168,14 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
   async function cambiarEstado(nuevo) {
     setError(''); setMensaje('')
     if (nuevo === 'cerrada') {
-      if (sucio) { setError('Guarda los cambios antes de cerrar la evaluación.'); return }
+      if (sucio) { setError('Guarda los cambios antes de marcar el puesto como evaluado.'); return }
       if (resumen.pendientes > 0) { setError(`Faltan P o C en ${resumen.pendientes} riesgo/s.`); return }
     }
     const { error: err } = await supabase.from('evaluaciones').update({ estado: nuevo }).eq('id', evaluacion.id)
     if (err) setError(err.message)
     else {
       setEstado(nuevo)
-      setMensaje(nuevo === 'cerrada' ? 'Evaluación cerrada. Más abajo puedes dar acceso al centro.' : 'Evaluación reabierta.')
+      setMensaje(nuevo === 'cerrada' ? 'Puesto evaluado. Vuelve al centro para seguir con los demás puestos.' : 'Puesto reabierto. Si la evaluación del centro estaba cerrada, vuelve a estar en curso.')
       if (nuevo === 'cerrada') setTimeout(() => accesoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
     }
   }
@@ -186,11 +187,11 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Evaluación de riesgos</h2>
+      <h2>Evaluación de riesgos del puesto</h2>
       <p>
         <b>{evaluacion.centro.codigo} · {evaluacion.centro.nombre}</b><br />
         Puesto: <b>{evaluacion.puesto.nombre}</b> · {evaluacion.fecha} ·{' '}
-        <b>{cerrada ? 'Cerrada' : 'Borrador'}</b>
+        <b>{cerrada ? 'Evaluado' : 'En curso'}</b>
       </p>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -213,11 +214,11 @@ export default function EvaluacionER({ supabase, evaluacion, filasIniciales, cat
           {guardando ? 'Guardando...' : 'Guardar'}
         </button>
         {cerrada ? (
-          <button className="secundario" onClick={() => cambiarEstado('borrador')}>Reabrir</button>
+          <button className="secundario" onClick={() => cambiarEstado('borrador')}>Reabrir el puesto</button>
         ) : (
-          <button className="secundario" onClick={() => cambiarEstado('cerrada')} disabled={guardando}>Cerrar evaluación</button>
+          <button className="secundario" onClick={() => cambiarEstado('cerrada')} disabled={guardando}>Marcar puesto como evaluado</button>
         )}
-        <button className="secundario" onClick={volver} disabled={guardando}>Volver a la lista</button>
+        <button className="secundario" onClick={volver} disabled={guardando}>{textoVolver}</button>
         <label style={{ ...campo, flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
           <span>Mostrar</span>
           <select value={filtro} onChange={(e) => setFiltro(e.target.value)} style={{ width: 'auto' }}>

@@ -62,7 +62,7 @@ export default function HojasEvaluacion({ supabase, modo }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').order('fecha', { ascending: false }).limit(1000)
+    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').in('estado', ['borrador', 'cerrada']).order('fecha', { ascending: false }).limit(1000)
       .then(({ data, error: err }) => {
         if (err) { setError(err.message); setEvals([]) }
         else setEvals(data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, centro: e.centros, puesto: e.puestos })))

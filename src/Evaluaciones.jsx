@@ -2,15 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import EvaluacionER from './EvaluacionER'
 import BarraAlta from './BarraAlta'
 import {
-  armarFilasER, filaDesdeMatriz, filasDeCheck, fusionarFilas, nuevoId, ordenarFilas,
+  armarFilasER, filaDesdeMatriz, fusionarFilas, nuevoId, ordenarFilas,
 } from './evalLogic'
+import { filasCheckDePuesto, progresoCentro, puestosAfectadosPorCambio, puestosQueFaltan, problemasCierre } from './evalCentroLogic'
+import { BarraProgreso, CheckCentro, NuevaEvaluacionCentro, ResumenEvaluacionCentro } from './EvaluacionCentro'
+import { METODOLOGIA_VERSION } from './metodologiaContenido'
 
-// Uso: <Evaluaciones supabase={supabase} />
-// Flujo: lista -> centro y puesto -> (creador de puesto si hace falta) -> check -> evaluación (ER)
+// Uso: <Evaluaciones supabase={supabase} onActualizar={...} />
+// Flujo: lista de evaluaciones de centro -> nueva (elegir centro) -> lista de comprobación del centro
+//        -> panel del centro con sus puestos -> evaluar cada puesto (creador de puesto si hace falta) -> ER
+// La evaluación del centro se cierra cuando todos sus puestos están evaluados o marcados como «no aplica».
 
 const EMBED = 'id,riesgo_id,condicion,p,c,riesgos(nombre),matriz_medidas(medida_id,medidas(texto))'
-const campo = { display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, fontSize: 14, textAlign: 'left' }
-const ancho = { width: '100%', boxSizing: 'border-box' }
 const filaCheck = {
   display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   gap: 12, width: '100%', textAlign: 'left', fontSize: 14, cursor: 'pointer',
@@ -37,114 +40,6 @@ const filaBD = (f, evaluacionId) => ({
   id: f.id, evaluacion_id: evaluacionId, riesgo_id: f.riesgo_id, riesgo_nombre: f.riesgo_nombre,
   condicion: f.condicion, p: f.p, c: f.c, medidas: f.medidas, origen: f.origen,
 })
-
-// ---------------------------------------------------------------------
-function NuevaEvaluacion({ supabase, onContinuar, onVolver, trabajando }) {
-  const [centros, setCentros] = useState([])
-  const [puestos, setPuestos] = useState([])
-  const [asignados, setAsignados] = useState([])
-  const [filtro, setFiltro] = useState('')
-  const [centroId, setCentroId] = useState('')
-  const [puestoId, setPuestoId] = useState('')
-  const [verTodos, setVerTodos] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from('centros').select('id,codigo,nombre').order('codigo'),
-      supabase.from('puestos').select('id,nombre').neq('nombre', 'TODOS').order('nombre'),
-    ]).then(([c, p]) => {
-      if (c.error || p.error) { setError((c.error || p.error).message); return }
-      setCentros(c.data); setPuestos(p.data)
-    })
-  }, [supabase])
-
-  useEffect(() => {
-    setPuestoId(''); setAsignados([])
-    if (!centroId) return
-    supabase.from('centro_puestos').select('puesto_id').eq('centro_id', centroId)
-      .then(({ data, error: err }) => {
-        if (err) setError(err.message)
-        else setAsignados(data.map((r) => r.puesto_id))
-      })
-  }, [supabase, centroId])
-
-  const centrosVisibles = useMemo(() => {
-    const q = filtro.trim().toLowerCase()
-    return q ? centros.filter((c) => `${c.codigo} ${c.nombre}`.toLowerCase().includes(q)) : centros
-  }, [centros, filtro])
-
-  const hayAsignados = asignados.length > 0
-  const puestosVisibles = verTodos || !hayAsignados ? puestos : puestos.filter((p) => asignados.includes(p.id))
-
-  const continuar = () => {
-    const centro = centros.find((c) => c.id === centroId)
-    const puesto = puestos.find((p) => p.id === puestoId)
-    if (centro && puesto) onContinuar(centro, puesto)
-  }
-
-  return (
-    <div style={{ maxWidth: 560, textAlign: 'left' }}>
-      <h2>Nueva evaluación</h2>
-      <p style={{ opacity: 0.7 }}>Paso 1 de 3 · Centro y puesto</p>
-      {error && <p style={aviso}>{error}</p>}
-      {centros.length === 0 && !error && <p className="vacio">Primero hay que crear algún centro.</p>}
-
-      <label style={campo}>
-        <span>Centro</span>
-        <input style={ancho} placeholder="Buscar por código o nombre" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
-      </label>
-      <div
-        role="listbox" aria-label="Centros"
-        style={{ ...ancho, marginTop: 6, maxHeight: 220, overflowY: 'auto', border: '1px solid #bbb', borderRadius: 6, background: '#fff' }}
-      >
-        {centrosVisibles.length === 0 && <div style={{ padding: 8, opacity: 0.7 }}>Ningún centro coincide.</div>}
-        {centrosVisibles.map((c) => {
-          const activo = c.id === centroId
-          return (
-            <div
-              key={c.id} role="option" aria-selected={activo} tabIndex={0}
-              onClick={() => setCentroId(c.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCentroId(c.id) } }}
-              style={{
-                padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
-                background: activo ? '#cfe0e0' : 'transparent', fontWeight: activo ? 700 : 400,
-              }}
-            >
-              {c.codigo} · {c.nombre}
-            </div>
-          )
-        })}
-      </div>
-
-      {centroId && (
-        <>
-          <label style={{ ...campo, marginTop: 14 }}>
-            <span>Puesto a evaluar</span>
-            <select style={ancho} value={puestoId} onChange={(e) => setPuestoId(e.target.value)}>
-              <option value="">— elige —</option>
-              {puestosVisibles.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          </label>
-          {hayAsignados && (
-            <label style={{ ...filaCheck, marginTop: 8 }}>
-              <span>Ver todos los puestos, no solo los de este centro</span>
-              <input type="checkbox" style={casilla} checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} />
-            </label>
-          )}
-          {!hayAsignados && <p style={{ opacity: 0.7, fontSize: 13 }}>Este centro aún no tiene puestos asignados; se muestran todos.</p>}
-        </>
-      )}
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-        <button onClick={continuar} disabled={!centroId || !puestoId || trabajando} style={{ padding: '10px 18px', fontWeight: 600 }}>
-          {trabajando ? 'Cargando...' : 'Continuar'}
-        </button>
-        <button className="secundario" onClick={onVolver} disabled={trabajando}>Cancelar</button>
-      </div>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------
 function CreadorPuesto({ supabase, puesto, onCreado, onCancelar }) {
@@ -199,7 +94,7 @@ function CreadorPuesto({ supabase, puesto, onCreado, onCancelar }) {
   return (
     <div style={{ maxWidth: 420, textAlign: 'left' }}>
       <h2>Creador de puesto</h2>
-      <p style={{ opacity: 0.7 }}>Paso 1 de 3 · El puesto no está en la matriz</p>
+      <p style={{ opacity: 0.7 }}>El puesto no está en la matriz</p>
       <p>
         <b>{puesto.nombre}</b> todavía no tiene riesgos en la matriz. Elige los puestos que se le parecen:
         se juntarán sus riesgos (sin duplicados, con la P y C más altas) y quedarán guardados como
@@ -227,279 +122,261 @@ function CreadorPuesto({ supabase, puesto, onCreado, onCancelar }) {
 }
 
 // ---------------------------------------------------------------------
-function PasoCheck({ ctx, onContinuar, onVolver, trabajando }) {
-  const [resp, setResp] = useState({})
-  const codigosBase = useMemo(
-    () => new Set([...ctx.filasPuesto, ...ctx.filasTodos].map((f) => f.riesgo_id)), [ctx])
-  const nombres = useMemo(() => new Map(ctx.riesgos.map((r) => [r.id, r.nombre])), [ctx])
-  const medidasPor = useMemo(() => {
-    const m = new Map()
-    ctx.catalogo.forEach((x) => {
-      if (!m.has(x.riesgo_id)) m.set(x.riesgo_id, [])
-      m.get(x.riesgo_id).push(x)
-    })
-    return m
-  }, [ctx])
+const SEL_EVC = 'id,fecha,estado,fecha_cierre,version_metodologia,check_hecho,check_respuestas,created_at,centros(id,codigo,nombre)'
+const SEL_EVAL = 'id,fecha,estado,puesto_id,motivo_no_aplica,puestos(id,nombre)'
+const hoyISO = () => new Date().toISOString().slice(0, 10)
+const migracion = (m) => (/evaluaciones_centro|evaluacion_centro_id|motivo_no_aplica/.test(m ?? '')
+  ? 'Falta ampliar la base de datos: ejecuta migracion_evaluacion_centro.sql en el SQL Editor de Supabase.' : m)
 
-  const poner = (id, parche) => setResp((r) => ({ ...r, [id]: { si: false, medidas: [], ...r[id], ...parche } }))
-  const alternar = (id, texto) => {
-    const actual = resp[id]?.medidas ?? []
-    poner(id, { medidas: actual.includes(texto) ? actual.filter((t) => t !== texto) : [...actual, texto] })
-  }
-  const siCount = Object.values(resp).filter((r) => r.si).length
-
-  return (
-    <div style={{ maxWidth: 720, textAlign: 'left' }}>
-      <h2>Check de riesgos</h2>
-      <p style={{ opacity: 0.7 }}>
-        Paso 2 de 3 · {ctx.centro.codigo} · {ctx.puesto.nombre}
-      </p>
-      <p>
-        Estos riesgos no se dan en todos los puestos. Contesta <b>Sí</b> a los que apliquen y marca las
-        medidas que ya están presentes. La P y la C las indicarás en la evaluación.
-      </p>
-
-      {ctx.preguntas.length === 0 && <p className="vacio">No hay preguntas de check cargadas.</p>}
-
-      {ctx.preguntas.map((q) => {
-        const r = resp[q.id]
-        const si = !!r?.si
-        const medidas = medidasPor.get(q.riesgo_id) ?? []
-        return (
-          <div key={q.id} style={{ borderBottom: '1px solid #e5e5e5', padding: '12px 0' }}>
-            <div style={{ fontSize: 13, opacity: 0.7 }}>
-              {q.riesgo_id} · {nombres.get(q.riesgo_id)}{q.subtipo ? ` · ${q.subtipo}` : ''}
-            </div>
-            <div style={{ margin: '4px 0 8px' }}>{q.pregunta}</div>
-            {codigosBase.has(q.riesgo_id) && (
-              <div style={{ fontSize: 13, color: '#8a6d00', marginBottom: 6 }}>
-                Este riesgo ya viene de la matriz del puesto; marca Sí solo si quieres añadir esta situación.
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="secundario" aria-pressed={si}
-                style={si ? { fontWeight: 700, outline: '2px solid #1f3864' } : undefined}
-                onClick={() => poner(q.id, { si: true })}>Sí</button>
-              <button type="button" className="secundario" aria-pressed={!si}
-                style={!si ? { fontWeight: 700, outline: '2px solid #1f3864' } : undefined}
-                onClick={() => poner(q.id, { si: false })}>No</button>
-            </div>
-            {si && medidas.length > 0 && (
-              <details style={{ marginTop: 8 }}>
-                <summary style={{ cursor: 'pointer' }}>
-                  Medidas presentes ({r.medidas.length} marcadas de {medidas.length})
-                </summary>
-                <div style={{ marginTop: 6 }}>
-                  {medidas.map((m) => (
-                    <div key={m.id} style={{ borderBottom: '1px solid #f0f0f0', padding: '4px 0' }}>
-                      <label style={filaCheck}>
-                        <span>{m.texto}</span>
-                        <input type="checkbox" style={casilla} checked={r.medidas.includes(m.texto)} onChange={() => alternar(q.id, m.texto)} />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
-        )
-      })}
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={() => onContinuar(filasDeCheck(ctx.preguntas, resp, nombres))} disabled={trabajando}
-          style={{ padding: '10px 18px', fontWeight: 600 }}>
-          {trabajando ? 'Creando la evaluación...' : 'Continuar a la evaluación'}
-        </button>
-        <button className="secundario" onClick={onVolver} disabled={trabajando}>Cancelar</button>
-        <span style={{ opacity: 0.7 }}>{siCount} riesgo/s añadidos con el check</span>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------
 export default function Evaluaciones({ supabase, onActualizar }) {
-  const [vista, setVista] = useState('lista') // lista | nueva | creador | check | er | pap
+  const [vista, setVista] = useState('lista') // lista | nueva | centro | check | creador | er
   const [lista, setLista] = useState([])
   const [cargandoLista, setCargandoLista] = useState(true)
-  const [ctx, setCtx] = useState(null)
+  const [evc, setEvc] = useState(null)          // evaluación del centro abierta
+  const [evals, setEvals] = useState([])        // sus puestos
+  const [faltan, setFaltan] = useState([])      // puestos del centro que no están en la evaluación
+  const [checkCtx, setCheckCtx] = useState(null)
+  const [puestoCtx, setPuestoCtx] = useState(null)
   const [er, setEr] = useState(null)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
   async function cargarLista() {
     setCargandoLista(true)
-    const { data, error: err } = await supabase.from('evaluaciones')
-      .select('id,fecha,estado,created_at,centros(id,codigo,nombre),puestos(id,nombre)')
-      .order('created_at', { ascending: false })
-    if (err) setError(err.message)
+    const { data, error: err } = await supabase.from('evaluaciones_centro')
+      .select(`${SEL_EVC},evaluaciones(id,estado)`).order('created_at', { ascending: false })
+    if (err) setError(migracion(err.message))
     else { setLista(data); setError('') }
     setCargandoLista(false)
   }
-
   useEffect(() => { cargarLista() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const aLista = () => { setVista('lista'); setCtx(null); setEr(null); setError(''); cargarLista() }
+  const enCurso = useMemo(() => Object.fromEntries(lista.filter((e) => e.estado === 'en_curso').map((e) => [e.centros?.id, e.id])), [lista])
+  const aLista = () => { setVista('lista'); setEvc(null); setEr(null); setError(''); setMensaje(''); cargarLista() }
 
-  async function prepararCheck(centro, puesto) {
-    const { data: todosP, error: e0 } = await supabase.from('puestos').select('id').eq('nombre', 'TODOS').maybeSingle()
-    if (e0) throw e0
-    const [filasPuesto, filasTodos, q, cats] = await Promise.all([
-      cargarFilasPuesto(supabase, puesto.id, 'puesto'),
-      todosP ? cargarFilasPuesto(supabase, todosP.id, 'todos') : Promise.resolve([]),
+  // Ejecuta una acción mostrando «trabajando» y recogiendo el error.
+  async function con(accion) {
+    setError(''); setTrabajando(true)
+    try { await accion() } catch (e) { setError(migracion(e.message)) } finally { setTrabajando(false) }
+  }
+
+  async function abrirCentro(id, msg = '') {
+    const [a, b] = await Promise.all([
+      supabase.from('evaluaciones_centro').select(SEL_EVC).eq('id', id).single(),
+      supabase.from('evaluaciones').select(SEL_EVAL).eq('evaluacion_centro_id', id),
+    ])
+    if (a.error || b.error) throw (a.error || b.error)
+    let centro = a.data
+    const { data: cp, error: e3 } = await supabase.from('centro_puestos').select('puesto_id').eq('centro_id', centro.centros.id)
+    if (e3) throw e3
+    // Si se reabrió un puesto o hay puestos sin hacer, la evaluación del centro vuelve a «en curso».
+    if (centro.estado === 'cerrada' && problemasCierre(centro, b.data).length) {
+      const { error: e4 } = await supabase.from('evaluaciones_centro').update({ estado: 'en_curso', fecha_cierre: null }).eq('id', id)
+      if (e4) throw e4
+      centro = { ...centro, estado: 'en_curso', fecha_cierre: null }
+      msg = msg || 'La evaluación del centro vuelve a estar en curso porque hay puestos sin terminar.'
+    }
+    setEvc(centro); setEvals(b.data); setFaltan(puestosQueFaltan(cp.map((r) => r.puesto_id), b.data))
+    setMensaje(msg); setVista('centro')
+  }
+
+  async function prepararCheck(centro) {
+    const [q, cats] = await Promise.all([
       supabase.from('check_preguntas').select('id,riesgo_id,subtipo,pregunta,orden').order('orden'),
       cargarCatalogos(supabase),
     ])
     if (q.error) throw q.error
-    setCtx({ centro, puesto, filasPuesto, filasTodos, preguntas: q.data, ...cats })
+    setCheckCtx({ preguntas: q.data, ...cats })
+    if (centro) setEvc(centro)
     setVista('check')
   }
 
-  async function iniciar(centro, puesto) {
-    setError(''); setTrabajando(true)
-    try {
-      const { count, error: err } = await supabase.from('matriz_puestos')
-        .select('id', { count: 'exact', head: true }).eq('puesto_id', puesto.id)
-      if (err) throw err
-      if (!count) { setCtx({ centro, puesto }); setVista('creador') }
-      else await prepararCheck(centro, puesto)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setTrabajando(false)
-    }
+  // Nueva evaluación: crea la del centro y una evaluación pendiente por cada puesto marcado.
+  const crearCentro = (centro) => con(async () => {
+    if (enCurso[centro.id]) { await abrirCentro(enCurso[centro.id]); return }
+    const { data: cp, error: e1 } = await supabase.from('centro_puestos').select('puesto_id').eq('centro_id', centro.id)
+    if (e1) throw e1
+    if (!cp.length) throw new Error('Este centro no tiene puestos marcados. Márcalos en «Datos de los centros» y vuelve a crear la evaluación.')
+    const { data: nueva, error: e2 } = await supabase.from('evaluaciones_centro')
+      .insert({ centro_id: centro.id, version_metodologia: METODOLOGIA_VERSION }).select(SEL_EVC).single()
+    if (e2) throw e2
+    const filas = [...new Set(cp.map((r) => r.puesto_id))].map((puesto_id) => ({ centro_id: centro.id, puesto_id, estado: 'pendiente', evaluacion_centro_id: nueva.id }))
+    const { data: creadas, error: e3 } = await supabase.from('evaluaciones').insert(filas).select(SEL_EVAL)
+    if (e3) { await supabase.from('evaluaciones_centro').delete().eq('id', nueva.id); throw e3 }
+    setEvals(creadas); setFaltan([])
+    await prepararCheck(nueva)
+  })
+
+  const guardarCheckCentro = (respuestas) => con(async () => {
+    const afectados = puestosAfectadosPorCambio(evc.check_respuestas ?? [], respuestas, evals)
+    const { error: err } = await supabase.from('evaluaciones_centro').update({ check_respuestas: respuestas, check_hecho: true }).eq('id', evc.id)
+    if (err) throw err
+    await abrirCentro(evc.id, afectados.length
+      ? `Lista de comprobación guardada. Revisa a mano estos puestos ya empezados, porque el cambio no les llega solo: ${afectados.map((e) => e.puestos?.nombre).join(', ')}.`
+      : 'Lista de comprobación guardada.')
+  })
+
+  async function abrirER(ev, filas, cats) {
+    setEr({ evaluacion: { id: ev.id, fecha: ev.fecha, estado: ev.estado, centro: evc.centros, puesto: ev.puestos }, filas, ...cats })
+    setVista('er')
   }
 
-  async function crearEvaluacion(filasCheck) {
-    setError(''); setTrabajando(true)
-    let evId = null
+  async function empezarPuesto(ev) {
+    const { data: todosP, error: e0 } = await supabase.from('puestos').select('id').eq('nombre', 'TODOS').maybeSingle()
+    if (e0) throw e0
+    const [filasPuesto, filasTodos, cats] = await Promise.all([
+      cargarFilasPuesto(supabase, ev.puesto_id, 'puesto'),
+      todosP ? cargarFilasPuesto(supabase, todosP.id, 'todos') : Promise.resolve([]),
+      cargarCatalogos(supabase),
+    ])
+    const filas = armarFilasER({ puesto: filasPuesto, todos: filasTodos, check: filasCheckDePuesto(evc.check_respuestas, ev.puesto_id) })
+    const filasDB = filas.map((f) => filaBD(f, ev.id))
     try {
-      const filas = armarFilasER({ puesto: ctx.filasPuesto, todos: ctx.filasTodos, check: filasCheck })
-      const { data: ev, error: err } = await supabase.from('evaluaciones')
-        .insert({ centro_id: ctx.centro.id, puesto_id: ctx.puesto.id }).select('id,fecha,estado').single()
-      if (err) throw err
-      evId = ev.id
-      const filasDB = filas.map((f) => filaBD(f, ev.id))
       for (let i = 0; i < filasDB.length; i += 200) {
         const { error: e2 } = await supabase.from('evaluacion_riesgos').insert(filasDB.slice(i, i + 200))
         if (e2) throw e2
       }
-      setEr({
-        evaluacion: { id: ev.id, fecha: ev.fecha, estado: ev.estado, centro: ctx.centro, puesto: ctx.puesto },
-        filas, catalogo: ctx.catalogo, riesgos: ctx.riesgos,
-      })
-      setVista('er')
+      const { error: e3 } = await supabase.from('evaluaciones').update({ estado: 'borrador', fecha: hoyISO() }).eq('id', ev.id)
+      if (e3) throw e3
     } catch (e) {
-      if (evId) await supabase.from('evaluaciones').delete().eq('id', evId)
-      setError(e.message)
-    } finally {
-      setTrabajando(false)
+      await supabase.from('evaluacion_riesgos').delete().eq('evaluacion_id', ev.id)
+      throw e
     }
+    await abrirER({ ...ev, estado: 'borrador', fecha: hoyISO() }, filas, cats)
   }
 
-  async function abrir(ev) {
-    setError(''); setTrabajando(true)
-    try {
-      const [rows, cats] = await Promise.all([
-        supabase.from('evaluacion_riesgos').select('*').eq('evaluacion_id', ev.id),
-        cargarCatalogos(supabase),
-      ])
-      if (rows.error) throw rows.error
-      const filas = ordenarFilas(rows.data.map((r) => ({
-        id: r.id, riesgo_id: r.riesgo_id, riesgo_nombre: r.riesgo_nombre, condicion: r.condicion,
-        p: r.p, c: r.c, medidas: r.medidas ?? [], origen: r.origen,
-      })))
-      setEr({
-        evaluacion: { id: ev.id, fecha: ev.fecha, estado: ev.estado, centro: ev.centros, puesto: ev.puestos },
-        filas, ...cats,
-      })
-      setVista('er')
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setTrabajando(false)
+  const evaluarPuesto = (ev) => con(async () => {
+    if (ev.estado === 'pendiente') {
+      const { count, error: err } = await supabase.from('matriz_puestos').select('id', { count: 'exact', head: true }).eq('puesto_id', ev.puesto_id)
+      if (err) throw err
+      if (!count) { setPuestoCtx(ev); setVista('creador'); return }
+      await empezarPuesto(ev)
+      return
     }
+    const [rows, cats] = await Promise.all([
+      supabase.from('evaluacion_riesgos').select('*').eq('evaluacion_id', ev.id),
+      cargarCatalogos(supabase),
+    ])
+    if (rows.error) throw rows.error
+    const filas = ordenarFilas(rows.data.map((r) => ({
+      id: r.id, riesgo_id: r.riesgo_id, riesgo_nombre: r.riesgo_nombre, condicion: r.condicion,
+      p: r.p, c: r.c, medidas: r.medidas ?? [], origen: r.origen,
+    })))
+    await abrirER(ev, filas, cats)
+  })
+
+  const cambiarPuesto = (ev, cambios, msg) => con(async () => {
+    const { error: err } = await supabase.from('evaluaciones').update(cambios).eq('id', ev.id)
+    if (err) throw err
+    await abrirCentro(evc.id, msg)
+  })
+
+  const anadirFaltan = () => con(async () => {
+    const filas = faltan.map((puesto_id) => ({ centro_id: evc.centros.id, puesto_id, estado: 'pendiente', evaluacion_centro_id: evc.id }))
+    const { error: err } = await supabase.from('evaluaciones').insert(filas)
+    if (err) throw err
+    await abrirCentro(evc.id, `${filas.length} ${filas.length === 1 ? 'puesto añadido' : 'puestos añadidos'} como pendientes.`)
+  })
+
+  const cerrarCentro = (cerrar) => con(async () => {
+    if (cerrar && problemasCierre(evc, evals).length) throw new Error('Todavía hay puestos sin terminar.')
+    const { error: err } = await supabase.from('evaluaciones_centro')
+      .update(cerrar ? { estado: 'cerrada', fecha_cierre: hoyISO() } : { estado: 'en_curso', fecha_cierre: null }).eq('id', evc.id)
+    if (err) throw err
+    setEvc({ ...evc, estado: cerrar ? 'cerrada' : 'en_curso', fecha_cierre: cerrar ? hoyISO() : null })
+    setMensaje(cerrar ? 'Evaluación del centro cerrada.' : 'Evaluación del centro reabierta.')
+  })
+
+  async function borrar(e) {
+    const n = e.evaluaciones?.length ?? 0
+    if (!window.confirm(`¿Borrar la evaluación de ${e.centros?.nombre} con sus ${n} puestos y todos sus riesgos y acciones del PAP? No se puede deshacer.`)) return
+    const { error: err } = await supabase.from('evaluaciones_centro').delete().eq('id', e.id)
+    if (err) setError(err.message); else cargarLista()
   }
 
-  async function borrar(ev) {
-    if (!window.confirm(`¿Borrar la evaluación de ${ev.puestos?.nombre} en ${ev.centros?.nombre}? No se puede deshacer.`)) return
-    const { error: err } = await supabase.from('evaluaciones').delete().eq('id', ev.id)
-    if (err) setError(err.message)
-    else cargarLista()
-  }
+  // ---------- vistas ----------
+  const errorBox = error && <p style={aviso}>{error}</p>
 
   if (vista === 'nueva') {
+    return <>{errorBox}<NuevaEvaluacionCentro supabase={supabase} enCurso={enCurso} onContinuar={crearCentro} onVolver={aLista} trabajando={trabajando} /></>
+  }
+  if (vista === 'check' && evc && checkCtx) {
     return (
-      <>
-        {error && <p style={aviso}>{error}</p>}
-        <NuevaEvaluacion supabase={supabase} onContinuar={iniciar} onVolver={aLista} trabajando={trabajando} />
+      <>{errorBox}
+        <CheckCentro evc={evc} evals={evals} {...checkCtx} trabajando={trabajando}
+          onGuardar={guardarCheckCentro} onVolver={() => con(() => abrirCentro(evc.id))} />
       </>
     )
   }
-  if (vista === 'creador') {
+  if (vista === 'creador' && puestoCtx) {
     return (
-      <CreadorPuesto
-        supabase={supabase} puesto={ctx.puesto} onCancelar={aLista}
-        onCreado={async () => {
-          setError(''); setTrabajando(true)
-          try { await prepararCheck(ctx.centro, ctx.puesto) } catch (e) { setError(e.message) } finally { setTrabajando(false) }
-        }}
-      />
-    )
-  }
-  if (vista === 'check') {
-    return (
-      <>
-        {error && <p style={aviso}>{error}</p>}
-        <PasoCheck ctx={ctx} onContinuar={crearEvaluacion} onVolver={aLista} trabajando={trabajando} />
+      <>{errorBox}
+        <CreadorPuesto supabase={supabase} puesto={puestoCtx.puestos} onCancelar={() => con(() => abrirCentro(evc.id))}
+          onCreado={() => con(() => empezarPuesto(puestoCtx))} />
       </>
     )
   }
-  if (vista === 'er') {
+  if (vista === 'er' && er) {
     return (
-      <EvaluacionER
-        supabase={supabase} evaluacion={er.evaluacion} filasIniciales={er.filas}
-        catalogo={er.catalogo} riesgos={er.riesgos} onVolver={aLista}
-      />
+      <EvaluacionER supabase={supabase} evaluacion={er.evaluacion} filasIniciales={er.filas}
+        catalogo={er.catalogo} riesgos={er.riesgos} onVolver={() => con(() => abrirCentro(evc.id))} textoVolver="Volver al centro" />
+    )
+  }
+  if (vista === 'centro' && evc) {
+    return (
+      <ResumenEvaluacionCentro evc={evc} evals={evals} faltan={faltan} mensaje={mensaje} error={error} trabajando={trabajando}
+        onCheck={() => con(() => prepararCheck())}
+        onEvaluar={evaluarPuesto}
+        onNoAplica={(ev, motivo) => cambiarPuesto(ev, { estado: 'no_aplica', motivo_no_aplica: motivo.trim() }, `${ev.puestos?.nombre}: no aplica.`)}
+        onPendiente={(ev) => cambiarPuesto(ev, { estado: 'pendiente', motivo_no_aplica: null }, `${ev.puestos?.nombre} vuelve a pendiente.`)}
+        onAnadirFaltan={anadirFaltan}
+        onCerrar={() => cerrarCentro(true)} onReabrir={() => cerrarCentro(false)} onVolver={aLista} />
     )
   }
 
+  const cerradas = lista.filter((e) => e.estado === 'cerrada').length
   return (
     <div style={{ textAlign: 'left' }}>
       <h2>Evaluación de Riesgos</h2>
       <BarraAlta
-        resumen={<span><b>{lista.length}</b> {lista.length === 1 ? 'evaluación' : 'evaluaciones'} · <b>{lista.filter((e) => e.estado === 'cerrada').length}</b> cerradas</span>}
-        onManual={() => { setError(''); setVista('nueva') }} textoManual="Nueva evaluación"
+        resumen={<span><b>{lista.length}</b> {lista.length === 1 ? 'evaluación de centro' : 'evaluaciones de centro'} · <b>{cerradas}</b> cerradas · <b>{lista.length - cerradas}</b> en curso</span>}
+        onManual={() => { setError(''); setVista('nueva') }} textoManual="Nueva evaluación de centro"
         onMasivo={onActualizar} textoMasivo="Importar medidas, matriz y check"
       />
-      {error && <p style={aviso}>{error}</p>}
+      {errorBox}
       {cargandoLista && <p>Cargando...</p>}
-      {!cargandoLista && lista.length === 0 && <p className="vacio">Todavía no hay evaluaciones.</p>}
+      {!cargandoLista && lista.length === 0 && !error && <p className="vacio">Todavía no hay evaluaciones. Crea la primera con «Nueva evaluación de centro».</p>}
       {!cargandoLista && lista.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr style={{ textAlign: 'left', borderBottom: '2px solid #ccc' }}>
-                <th style={{ padding: 8 }}>Fecha</th>
                 <th style={{ padding: 8 }}>Centro</th>
-                <th style={{ padding: 8 }}>Puesto</th>
+                <th style={{ padding: 8 }}>Iniciada</th>
+                <th style={{ padding: 8 }}>Avance</th>
                 <th style={{ padding: 8 }}>Estado</th>
                 <th style={{ padding: 8 }} />
               </tr>
             </thead>
             <tbody>
-              {lista.map((ev) => (
-                <tr key={ev.id} style={{ borderBottom: '1px solid #e5e5e5' }}>
-                  <td style={{ padding: 8 }}>{ev.fecha}</td>
-                  <td style={{ padding: 8 }}>{ev.centros?.codigo} · {ev.centros?.nombre}</td>
-                  <td style={{ padding: 8 }}>{ev.puestos?.nombre}</td>
-                  <td style={{ padding: 8 }}>{ev.estado === 'cerrada' ? 'Cerrada' : 'Borrador'}</td>
-                  <td style={{ padding: 8, whiteSpace: 'nowrap' }}>
-                    <button className="secundario" onClick={() => abrir(ev)} disabled={trabajando}>Abrir</button>{' '}
-                    <button className="secundario" onClick={() => borrar(ev)} disabled={trabajando} style={{ color: '#b00020' }}>Borrar</button>
-                  </td>
-                </tr>
-              ))}
+              {lista.map((e) => {
+                const prog = progresoCentro(e.evaluaciones ?? [])
+                return (
+                  <tr key={e.id} style={{ borderBottom: '1px solid #e5e5e5' }}>
+                    <td style={{ padding: 8 }}>{e.centros?.codigo} · {e.centros?.nombre}</td>
+                    <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{e.fecha}</td>
+                    <td style={{ padding: 8 }}><BarraProgreso evals={e.evaluaciones ?? []} /></td>
+                    <td style={{ padding: 8 }}>
+                      {e.estado === 'cerrada' ? `Cerrada (${e.fecha_cierre ?? ''})` : !e.check_hecho ? 'En curso · falta la lista de comprobación' : prog.completo ? 'En curso · lista para cerrar' : 'En curso'}
+                    </td>
+                    <td style={{ padding: 8, whiteSpace: 'nowrap' }}>
+                      <button className="secundario" onClick={() => con(() => abrirCentro(e.id))} disabled={trabajando}>Abrir</button>{' '}
+                      <button className="secundario" onClick={() => borrar(e)} disabled={trabajando} style={{ color: '#b00020' }}>Borrar</button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
