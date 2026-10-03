@@ -5,8 +5,8 @@
 // cada evaluación guarda la versión vigente cuando se hizo.
 // =====================================================================
 
-export const METODOLOGIA_VERSION = "1.0";
-export const METODOLOGIA_FECHA = "2026-10-02";
+export const METODOLOGIA_VERSION = "1.1";
+export const METODOLOGIA_FECHA = "2026-10-03";
 
 // ---------- Escalas (fuente única: también las usa el cálculo) ----------
 
@@ -184,6 +184,55 @@ export const SECCIONES = [
         tipo: "p",
         texto:
           "Como método general se utiliza el de evaluación de riesgos del Instituto Nacional de Seguridad y Salud en el Trabajo (INSST), basado en estimar para cada peligro la severidad del daño y la probabilidad de que ocurra.",
+      },
+    ],
+  },
+  {
+    id: "catalogo",
+    titulo: "Catálogo de riesgos y codificación",
+    bloques: [
+      {
+        tipo: "p",
+        texto:
+          "Los riesgos se identifican con un código propio, R01, R02... hasta R39, seguido del nombre del riesgo. Cada medida preventiva lleva el código de su riesgo y un número de orden (por ejemplo, R01-M03). El catálogo es único para todos los centros y puestos.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "El catálogo sigue la lista oficial de formas de accidente y de agentes causantes de enfermedad (códigos 01 a 30) y la amplía donde lo exige el trabajo en centros de atención a personas. Los riesgos R01 a R12 coinciden en número y contenido con las formas oficiales 01 a 12. A partir de R13 el catálogo reordena y desglosa el resto de las formas oficiales e incorpora riesgos propios de estos centros: violencia, movilización de pacientes, agentes biológicos, carga física y factores psicosociales.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Cada riesgo lleva asignada su forma oficial (01 a 30). La tabla siguiente recoge la equivalencia y si el encaje es directo, aproximado o sin equivalente claro.",
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Por qué se mantiene un catálogo propio",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Estabilidad. El código de un riesgo no cambia, de modo que las medidas, las evaluaciones y los informes ya emitidos conservan siempre su referencia.",
+          "Precisión. La lista oficial describe cómo ocurre el accidente o de qué agente deriva la enfermedad, y agrupa en «otras circunstancias» los factores ergonómicos y psicosociales, que en los centros evaluados están entre los más relevantes: movilización de pacientes y carga física, estrés, violencia y fatiga por turnos. Usarla como único código obligaría a mezclarlos y a perder su valoración por separado.",
+          "Comparabilidad. Como cada riesgo lleva su forma oficial, los resultados pueden agruparse con la clasificación estándar para estadísticas, comparaciones e informes.",
+          "Trazabilidad. Cada evaluación conserva una copia de los riesgos con los que se hizo, por lo que un cambio posterior del catálogo no altera una evaluación ya entregada.",
+        ],
+      },
+      {
+        tipo: "tabla",
+        fuente: "EQUIVALENCIA",
+        columnas: ["Código", "Riesgo", "Forma oficial", "Encaje"],
+      },
+      {
+        tipo: "p",
+        texto:
+          "El catálogo no incluye ningún riesgo de la forma oficial 25, causas naturales, porque son hechos que ocurren en el centro de trabajo sin ser consecuencia del propio trabajo.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Un riesgo nuevo recibe el siguiente código libre y su forma oficial. Cualquier alta, baja o cambio de nombre o de equivalencia del catálogo implica una nueva versión de esta metodología.",
       },
     ],
   },
@@ -480,6 +529,49 @@ export const ESPECIFICAS = [
   },
 ];
 
+// Equivalencia entre los códigos del catálogo y la lista oficial de formas de accidente (01 a 30)
+export const EQUIVALENCIA_RIESGOS = [
+  ["R01", "Caídas a distinto nivel", "01 · Caída de personas a distinto nivel", "Directa"],
+  ["R02", "Caídas al mismo nivel", "02 · Caída de personas al mismo nivel", "Directa"],
+  ["R03", "Caída de objetos por desplome", "03 · Caída de objetos por derrumbamiento", "Directa"],
+  ["R04", "Caída de objetos en manipulación", "04 · Caída de objetos por manipulación", "Directa"],
+  ["R05", "Caídas de objetos desprendidos", "05 · Caída de objetos desprendidos", "Directa"],
+  ["R06", "Pisadas sobre objetos", "06 · Pisadas sobre objetos", "Directa"],
+  ["R07", "Golpes contra objetos inmóviles", "07 · Golpes contra objetos inmóviles", "Directa"],
+  ["R08", "Golpes/contactos con elementos móviles de máquinas", "08 · Golpes y contactos con elementos móviles de la máquina", "Directa"],
+  ["R09", "Golpes o cortes por objetos/herramientas", "09 · Golpes por objetos o herramientas", "Directa"],
+  ["R10", "Proyección de fragmentos o partículas", "10 · Proyección de fragmentos o partículas", "Directa"],
+  ["R11", "Atrapamientos por o entre objetos", "11 · Atrapamiento por o entre objetos", "Directa"],
+  ["R12", "Atrapamientos por vuelco de máquinas o vehículos", "12 · Atrapamientos por vuelta de máquinas", "Directa"],
+  ["R13", "Contactos térmicos", "15 · Contactos térmicos", "Directa"],
+  ["R14", "Contactos eléctricos", "16 · Contactos eléctricos", "Directa"],
+  ["R15", "Contactos con sustancias cáusticas/corrosivas", "18 · Contactos con sustancias cáusticas y/o corrosivas", "Directa"],
+  ["R16", "Explosiones", "20 · Explosiones", "Directa"],
+  ["R17", "Incendios", "21 · Fuego", "Directa"],
+  ["R18", "Accidentes causados por seres vivos", "22 · Causados por seres vivos", "Directa"],
+  ["R19", "Agresiones físicas", "22 · Causados por seres vivos", "Aproximada"],
+  ["R20", "Atracos y robos con violencia", "22 · Causados por seres vivos", "Aproximada"],
+  ["R21", "Atropellos, golpes o choques contra o con vehículos", "23 · Atropellos, golpes y choques contra vehículos", "Directa"],
+  ["R22", "Accidentes de tráfico/desplazamiento", "24 · Accidentes de tráfico", "Directa"],
+  ["R23", "Estrés térmico", "14 · Exposición a temperaturas extremas", "Directa"],
+  ["R24", "Condiciones climatológicas adversas", "26 · Otras", "Aproximada"],
+  ["R25", "Inhalación/contacto/ingestión de sustancias nocivas", "17 · Inhalación o ingestión de sustancias nocivas", "Directa"],
+  ["R26", "Exposición a radiaciones", "19 · Exposiciones a radiación", "Directa"],
+  ["R27", "Exposición a agentes químicos", "27 · Agentes químicos", "Directa"],
+  ["R28", "Exposición a agentes físicos", "28 · Agentes físicos", "Directa"],
+  ["R29", "Exposición a agentes biológicos", "29 · Agentes biológicos", "Directa"],
+  ["R30", "Carga física", "13 · Sobreesfuerzos", "Aproximada"],
+  ["R31", "Fatiga por uso de PVD", "30 · Otras circunstancias (enfermedad)", "Aproximada"],
+  ["R32", "Condiciones de iluminación", "28 · Agentes físicos", "Aproximada"],
+  ["R33", "Condiciones higrotérmicas", "28 · Agentes físicos", "Aproximada"],
+  ["R34", "Disconfort ambiental", "28 · Agentes físicos", "Aproximada"],
+  ["R35", "Sobreesfuerzos vocales", "30 · Otras circunstancias (enfermedad)", "Aproximada"],
+  ["R36", "Estrés laboral", "30 · Otras circunstancias (enfermedad)", "Sin equivalente claro"],
+  ["R37", "Fatiga derivada de la ordenación del tiempo de trabajo", "30 · Otras circunstancias (enfermedad)", "Sin equivalente claro"],
+  ["R38", "Violencia en el trabajo", "22 · Causados por seres vivos", "Aproximada"],
+  ["R39", "Otros riesgos", "26 · Otras", "Directa"],
+];
+
 // Mapa para que la vista resuelva tablas por nombre
 export const FUENTES = {
   CONSECUENCIAS: CONSECUENCIAS.map((c) => [`${c.nombre} (${c.codigo})`, c.descripcion, c.ejemplos]),
@@ -489,4 +581,5 @@ export const FUENTES = {
   PRIORIDADES_PAC: PRIORIDADES_PAC.map((p) => [p.nombre, p.plazo]),
   ESTADOS_ACCION: ESTADOS_ACCION.map((e) => [e.nombre, e.descripcion]),
   ESPECIFICAS: ESPECIFICAS.map((e) => [e.ambito, e.cuando, e.referencia]),
+  EQUIVALENCIA: EQUIVALENCIA_RIESGOS,
 };
