@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { TituloApp } from './Marca'
 import { supabase, configOk } from './supabaseClient'
 import Login from './Login'
 import Centros from './Centros'
@@ -49,8 +50,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="cabecera">
-        <span className="franja" aria-hidden="true" />
-        <strong>Evaluación de riesgos</strong>
+        <TituloApp />
         <span className="usuario">{sesion.user.email}</span>
         <button className="secundario" onClick={() => supabase.auth.signOut()}>
           Cerrar sesión

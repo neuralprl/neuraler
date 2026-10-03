@@ -37,7 +37,8 @@ function Interruptor({ activo, onChange, etiqueta, deshabilitado = false }) {
   )
 }
 
-function TarjetaAccion({ f, fechaEval, hoy, onCambio, soloEstado }) {
+// cabeza: lo que se muestra encima de los controles (por defecto, el riesgo, la situación y sus medidas).
+export function TarjetaAccion({ f, fechaEval, hoy, onCambio, soloEstado, cabeza = null }) {
   const plazoEstandar = PLAZO_POR_VR[f.vr]?.etiqueta
   const hecha = f.estado_accion === 'realizada'
   const comprobada = f.eficacia_estado === 'realizada'
@@ -48,12 +49,16 @@ function TarjetaAccion({ f, fechaEval, hoy, onCambio, soloEstado }) {
 
   return (
     <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: 12, marginBottom: 10, textAlign: 'left' }}>
-      <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
-      <p style={{ margin: '4px 0' }}>{f.condicion}</p>
-      {f.medidas.length > 0 && (
-        <ul style={{ margin: '4px 0 10px 18px', padding: 0 }}>
-          {f.medidas.map((m, i) => <li key={i}>{m}</li>)}
-        </ul>
+      {cabeza ?? (
+        <>
+          <strong>{f.riesgo_id} · {f.riesgo_nombre}</strong>
+          <p style={{ margin: '4px 0' }}>{f.condicion}</p>
+          {f.medidas.length > 0 && (
+            <ul style={{ margin: '4px 0 10px 18px', padding: 0 }}>
+              {f.medidas.map((m, i) => <li key={i}>{m}</li>)}
+            </ul>
+          )}
+        </>
       )}
 
       <div style={rejilla}>
@@ -284,7 +289,7 @@ export default function PlanPreventivo({ supabase, evaluacion, onVolver, soloEst
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Plan de acción preventiva (PAP)</h2>
+      <h2>Planificación Actividad Preventiva (PAP)</h2>
       <p>
         <b>{evaluacion.centro.codigo} · {evaluacion.centro.nombre}</b><br />
         Puesto: <b>{evaluacion.puesto.nombre}</b> · {fechaES(evaluacion.fecha)}

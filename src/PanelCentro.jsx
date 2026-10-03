@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  COLOR_NIVEL, accionesPAC, accionesPAP, avisosDePanel, filtrarAcciones, hoyISO, ordenar, resumen, textoPlazo,
+  COLOR_NIVEL, accionesPAC, accionesPAPCentro, avisosDePanel, filtrarAcciones, hoyISO, ordenar, resumen, textoPlazo,
 } from './panelLogic'
 import { avisosDe } from './agresionesLogic'
 import { fechaES } from './planLogic'
@@ -40,13 +40,16 @@ export default function PanelCentro({ supabase, evals, onIr }) {
     let vivo = true
     ;(async () => {
       try {
-        const evalIds = evals.map((e) => e.id)
         const centroIds = centros.map((c) => c.id)
-        const filas = evalIds.length
-          ? await leerTodo(() => supabase.from('evaluacion_riesgos')
-              .select('id,evaluacion_id,riesgo_id,riesgo_nombre,condicion,p,c,medidas,estado_accion,plazo,responsable').in('evaluacion_id', evalIds).order('id'))
-          : []
-        const pap = accionesPAP(filas, evals, hoy)
+        // PAP del centro: acciones unificadas de las evaluaciones de centro a las que pertenecen sus puestos.
+        const evcs = [...new Map(evals.filter((e) => e.evaluacion_centro_id)
+          .map((e) => [e.evaluacion_centro_id, { id: e.evaluacion_centro_id, centro: e.centro }])).values()]
+        let pap = []
+        if (evcs.length) {
+          const acc = await leerTodo(() => supabase.from('pap_acciones').select('id,evaluacion_centro_id,medida,vr,riesgos,puestos,vigente,plazo,estado_accion,responsable')
+            .in('evaluacion_centro_id', evcs.map((e) => e.id)).order('id')).catch(() => [])   // si la tabla aún no existe, se ignora
+          pap = accionesPAPCentro(acc, evcs, hoy)
+        }
 
         let pac = []
         if (centroIds.length) {
@@ -151,7 +154,7 @@ export function PanelVista({ centros, acciones, agresiones, filtro, setFiltro, e
                       </td>
                       <td style={{ padding: 8 }}>{a.responsable}</td>
                       <td style={{ padding: 8 }}>
-                        <button className="secundario" onClick={() => onIr(a.origen === 'PAP' ? 'pap' : 'pac', a.origen === 'PAP' ? a.evaluacion_id : a.centro_id)}>Abrir</button>
+                        <button className="secundario" onClick={() => onIr(a.origen === 'PAP' ? 'pap' : 'pac', a.origen === 'PAP' ? a.evaluacion_centro_id : a.centro_id)}>Abrir</button>
                       </td>
                     </tr>
                   ))}

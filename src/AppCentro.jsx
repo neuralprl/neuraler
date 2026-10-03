@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TituloApp } from './Marca'
 import PanelCentro from './PanelCentro'
 import PapLista from './PapLista'
 import InformacionRiesgos from './InformacionRiesgos'
@@ -263,11 +264,11 @@ export default function AppCentro({ supabase, sesion }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    supabase.from('evaluaciones').select('id,fecha,estado,centros(id,codigo,nombre),puestos(id,nombre)').in('estado', ['borrador', 'cerrada'])
+    supabase.from('evaluaciones').select('id,fecha,estado,evaluacion_centro_id,centros(id,codigo,nombre),puestos(id,nombre)').in('estado', ['borrador', 'cerrada'])
       .order('fecha', { ascending: false })
       .then(({ data, error: err }) => {
         if (err) { setError(err.message); return }
-        setEvals(data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, centro: e.centros, puesto: e.puestos })))
+        setEvals(data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, evaluacion_centro_id: e.evaluacion_centro_id, centro: e.centros, puesto: e.puestos })))
       })
   }, [supabase])
 
@@ -286,8 +287,7 @@ export default function AppCentro({ supabase, sesion }) {
   return (
     <div className="app">
       <header className="cabecera">
-        <span className="franja" aria-hidden="true" />
-        <strong>Evaluación de riesgos</strong>
+        <TituloApp />
         <span className="usuario">{sesion.user.email}</span>
         <button className="secundario" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
       </header>

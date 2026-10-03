@@ -61,6 +61,25 @@ export function accionesPAP(filas, evaluaciones, hoy = hoyISO()) {
   return out
 }
 
+// Acciones pendientes del PAP del centro. acciones: filas de pap_acciones; evcs: evaluaciones_centro con {id, fecha, centro}.
+export function accionesPAPCentro(acciones, evcs, hoy = hoyISO()) {
+  const ev = Object.fromEntries(evcs.map((e) => [e.id, e]))
+  const out = []
+  acciones.forEach((a) => {
+    const e = ev[a.evaluacion_centro_id]
+    if (!e || a.vigente === false || a.estado_accion === 'realizada' || !a.plazo) return
+    const dias = diasHasta(a.plazo, hoy)
+    const n = (a.puestos ?? []).length
+    out.push({
+      origen: 'PAP', id: a.id, evaluacion_centro_id: a.evaluacion_centro_id, plazo: a.plazo, dias, nivel: nivelPlazo(dias), vr: a.vr,
+      donde: n === 1 ? a.puestos[0].nombre : `${n} puestos`, centro: e.centro?.nombre ?? '',
+      que: a.medida, detalle: (a.riesgos ?? []).map((r) => `${r.id} · ${r.nombre}`).join('; '),
+      responsable: a.responsable ?? 'Dirección del centro',
+    })
+  })
+  return out
+}
+
 // Incidencias pendientes del PAC. respuestas: filas de pac_respuestas; items: pac_items; visitas: pac_visitas con centros.
 export function accionesPAC(respuestas, items, visitas, hoy = hoyISO()) {
   const it = Object.fromEntries(items.map((i) => [i.id, i]))

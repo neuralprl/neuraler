@@ -99,7 +99,7 @@ export function NuevaEvaluacionCentro({ supabase, enCurso, onContinuar, onVolver
 // Panel de la evaluación del centro: check, puestos y cierre.
 export function ResumenEvaluacionCentro({
   supabase, evc, evals, faltan, mensaje, error, trabajando,
-  onCheck, onEvaluar, onNoAplica, onPendiente, onAnadirFaltan, onCerrar, onReabrir, onVolver,
+  onCheck, onEvaluar, onNoAplica, onPendiente, onAnadirFaltan, onCerrar, onReabrir, onVolver, onPap,
 }) {
   const [motivo, setMotivo] = useState({ id: null, texto: '' })
   const prog = progresoCentro(evals)
@@ -200,6 +200,7 @@ export function ResumenEvaluacionCentro({
             {prog.completo && problemas.length === 0 && <span style={{ marginLeft: 10, color: '#2e7d32' }}>Todos los puestos están evaluados.</span>}
           </>
         )}
+        {' '}<button className="secundario" onClick={onPap} disabled={trabajando || prog.evaluados + prog.enCurso === 0}>Ver el PAP del centro</button>
         {' '}<button className="secundario" onClick={onVolver} disabled={trabajando}>Volver a la lista</button>
       </section>
 

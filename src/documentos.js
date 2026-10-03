@@ -4,6 +4,7 @@ import { COLOR_VR, ORDEN_VR, vrDe } from './evalLogic.js'
 import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
 import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, nombreConsecuencia, nombreDeficiencia } from './pacLogic.js'
 import { AGRESORES, CONSECUENCIAS, ESTADOS, TIPOS } from './agresionesLogic.js'
+import { puestosConMenorPrioridad } from './papCentroLogic.js'
 import { COLUMNAS as COLUMNAS_AGRESIONES, OBLIGATORIAS as OBLIGATORIAS_AGRESIONES } from './agresionesImport.js'
 
 export { fechaES }
@@ -229,6 +230,95 @@ export async function excelPAP(ev, filasPlan) {
   ws.autoFilter = { from: 'A5', to: `K${Math.max(5, 5 + filasPlan.length)}` }
   ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
 
+  const buf = await wb.xlsx.writeBuffer()
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+
+// ---------- PAP del centro (acciones unificadas de todos los puestos) ----------
+// evc: { fecha, centro: {codigo, nombre} }; acciones: filas de pap_acciones (vigentes), ya ordenadas.
+export function nombreArchivoPAPCentro(evc, ext) {
+  const slug = (t) => quitarAcentos(t).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return `PAP_${slug(evc.centro.codigo)}_${evc.fecha}.${ext}`
+}
+
+const textoPuestos = (a, total) => ((a.puestos ?? []).length === total && total > 1
+  ? `Todos los puestos (${total})` : (a.puestos ?? []).map((p) => p.nombre).join(', '))
+const textoMenor = (a) => puestosConMenorPrioridad(a).map((p) => `${p.nombre} (${p.vr})`).join(', ')
+const textoRiesgos = (a) => (a.riesgos ?? []).map((r) => `${r.id} · ${r.nombre}`).join('; ')
+
+export function htmlPAPCentro(evc, acciones, totalPuestos) {
+  const filas = acciones.map((a) => {
+    const pr = PRIORIDADES[a.vr]
+    const menor = textoMenor(a)
+    return `<tr>
+  <td>${esc(pr.prioridad)}</td>
+  <td class="vr" style="background:${COLOR_VR[a.vr]}">${esc(a.vr)}</td>
+  <td>${esc(a.medida)}${menor ? `<div class="nota">Prioridad más baja en: ${esc(menor)}</div>` : ''}</td>
+  <td>${esc(textoRiesgos(a))}</td>
+  <td>${esc(textoPuestos(a, totalPuestos))}</td>
+  <td>${esc(a.responsable ?? '')}</td>
+  <td>${esc(a.coste ?? '')}</td>
+  <td>${esc(fechaES(a.plazo))}</td>
+  <td>${esc(textoRealizacion(a))}</td>
+  <td>${esc(textoEficacia(a, evc.fecha))}</td>
+</tr>`
+  }).join('')
+  const cuerpo = `<h1>Planificación de la actividad preventiva (PAP) del centro</h1>
+<div class="meta">
+  <p><b>Centro:</b> ${esc(evc.centro.codigo)} · ${esc(evc.centro.nombre)}</p>
+  <p><b>Fecha de la evaluación:</b> ${esc(fechaES(evc.fecha))} · <b>Puestos evaluados:</b> ${totalPuestos}</p>
+</div>
+<p class="nota">Cada medida aparece una sola vez para todo el centro, con la prioridad más restrictiva de los puestos en los que aparece. Cuando en algún puesto la prioridad es más baja, se indica debajo de la medida.</p>
+<table>
+  <thead><tr>
+    <th>Prioridad</th><th>VR</th><th>Medida preventiva</th><th>Riesgos</th><th>Puestos</th>
+    <th>Responsable</th><th>Coste</th><th>Plazo</th><th>Ejecución</th><th>Eficacia</th>
+  </tr></thead>
+  <tbody>${filas}</tbody>
+</table>`
+  return documentoHTML(nombreArchivoPAPCentro(evc, 'pdf').replace(/\.pdf$/, ''), cuerpo, true)
+}
+
+export async function excelPAPCentro(evc, acciones, totalPuestos) {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('PAP')
+  const fuente = { name: 'Arial', size: 10 }
+  const borde = { style: 'thin', color: { argb: 'FF999999' } }
+  const bordes = { top: borde, left: borde, bottom: borde, right: borde }
+  ws.columns = [{ width: 11 }, { width: 7 }, { width: 60 }, { width: 34 }, { width: 40 }, { width: 34 }, { width: 22 }, { width: 24 }, { width: 13 }, { width: 22 }, { width: 26 }]
+  ws.getCell('A1').value = 'Planificación de la actividad preventiva (PAP) del centro'
+  ws.getCell('A1').font = { name: 'Arial', size: 14, bold: true }
+  ws.getCell('A2').value = `Centro: ${evc.centro.codigo} · ${evc.centro.nombre}`
+  ws.getCell('A3').value = `Fecha de la evaluación: ${fechaES(evc.fecha)}   ·   Puestos evaluados: ${totalPuestos}   ·   Cada medida una sola vez, con la prioridad más restrictiva.`
+  ;['A2', 'A3'].forEach((c) => { ws.getCell(c).font = fuente })
+  const cab = ['Prioridad', 'VR', 'Medida preventiva', 'Riesgos', 'Puestos', 'Prioridad más baja en', 'Responsable', 'Coste', 'Plazo', 'Ejecución', 'Eficacia']
+  cab.forEach((t, i) => {
+    const c = ws.getRow(5).getCell(i + 1)
+    c.value = t
+    c.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    c.border = bordes
+  })
+  acciones.forEach((a, i) => {
+    const fila = ws.getRow(6 + i)
+    const v = [PRIORIDADES[a.vr].prioridad, a.vr, a.medida, textoRiesgos(a), textoPuestos(a, totalPuestos), textoMenor(a),
+      a.responsable ?? '', a.coste ?? '', a.plazo ? new Date(`${a.plazo}T00:00:00Z`) : null, textoRealizacion(a), textoEficacia(a, evc.fecha)]
+    v.forEach((x, k) => {
+      const c = fila.getCell(k + 1)
+      c.value = x; c.font = fuente; c.border = bordes
+      c.alignment = { vertical: 'top', wrapText: true, horizontal: k === 1 ? 'center' : 'left' }
+    })
+    fila.getCell(9).numFmt = 'dd/mm/yyyy'
+    const vr = fila.getCell(2)
+    vr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_VR[a.vr].slice(1).toUpperCase() } }
+    vr.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+  })
+  ws.views = [{ state: 'frozen', ySplit: 5 }]
+  ws.autoFilter = { from: 'A5', to: `K${Math.max(5, 5 + acciones.length)}` }
+  ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
   const buf = await wb.xlsx.writeBuffer()
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }

@@ -7,6 +7,8 @@ import {
 import { filasCheckDePuesto, progresoCentro, puestosAfectadosPorCambio, puestosQueFaltan, problemasCierre } from './evalCentroLogic'
 import { BarraProgreso, CheckCentro, NuevaEvaluacionCentro, ResumenEvaluacionCentro } from './EvaluacionCentro'
 import { METODOLOGIA_VERSION } from './metodologiaContenido'
+import PapCentro from './PapCentro'
+import { sincronizarPAPCentro } from './papCentroDatos'
 
 // Uso: <Evaluaciones supabase={supabase} onActualizar={...} />
 // Flujo: lista de evaluaciones de centro -> nueva (elegir centro) -> lista de comprobación del centro
@@ -129,7 +131,7 @@ const migracion = (m) => (/evaluaciones_centro|evaluacion_centro_id|motivo_no_ap
   ? 'Falta ampliar la base de datos: ejecuta migracion_evaluacion_centro.sql en el SQL Editor de Supabase.' : m)
 
 export default function Evaluaciones({ supabase, onActualizar }) {
-  const [vista, setVista] = useState('lista') // lista | nueva | centro | check | creador | er
+  const [vista, setVista] = useState('lista') // lista | nueva | centro | check | creador | er | pap
   const [lista, setLista] = useState([])
   const [cargandoLista, setCargandoLista] = useState(true)
   const [evc, setEvc] = useState(null)          // evaluación del centro abierta
@@ -285,7 +287,14 @@ export default function Evaluaciones({ supabase, onActualizar }) {
       .update(cerrar ? { estado: 'cerrada', fecha_cierre: hoyISO() } : { estado: 'en_curso', fecha_cierre: null }).eq('id', evc.id)
     if (err) throw err
     setEvc({ ...evc, estado: cerrar ? 'cerrada' : 'en_curso', fecha_cierre: cerrar ? hoyISO() : null })
-    setMensaje(cerrar ? 'Evaluación del centro cerrada.' : 'Evaluación del centro reabierta.')
+    let msg = cerrar ? 'Evaluación del centro cerrada.' : 'Evaluación del centro reabierta.'
+    if (cerrar) {
+      try {
+        const r = await sincronizarPAPCentro(supabase, evc)
+        msg += ` PAP del centro preparado (${r.nuevas} acciones nuevas, ${r.cambiadas} actualizadas).`
+      } catch (e) { msg += ` No se ha podido preparar el PAP: ${e.message}` }
+    }
+    setMensaje(msg)
   })
 
   async function borrar(e) {
@@ -323,6 +332,9 @@ export default function Evaluaciones({ supabase, onActualizar }) {
         catalogo={er.catalogo} riesgos={er.riesgos} onVolver={() => con(() => abrirCentro(evc.id))} textoVolver="Volver al centro" />
     )
   }
+  if (vista === 'pap' && evc) {
+    return <PapCentro supabase={supabase} evc={{ id: evc.id, fecha: evc.fecha, centro: evc.centros }} onVolver={() => con(() => abrirCentro(evc.id))} />
+  }
   if (vista === 'centro' && evc) {
     return (
       <ResumenEvaluacionCentro supabase={supabase} evc={evc} evals={evals} faltan={faltan} mensaje={mensaje} error={error} trabajando={trabajando}
@@ -331,6 +343,7 @@ export default function Evaluaciones({ supabase, onActualizar }) {
         onNoAplica={(ev, motivo) => cambiarPuesto(ev, { estado: 'no_aplica', motivo_no_aplica: motivo.trim() }, `${ev.puestos?.nombre}: no aplica.`)}
         onPendiente={(ev) => cambiarPuesto(ev, { estado: 'pendiente', motivo_no_aplica: null }, `${ev.puestos?.nombre} vuelve a pendiente.`)}
         onAnadirFaltan={anadirFaltan}
+        onPap={() => { setError(''); setVista('pap') }}
         onCerrar={() => cerrarCentro(true)} onReabrir={() => cerrarCentro(false)} onVolver={aLista} />
     )
   }
