@@ -228,8 +228,8 @@ function VistaActividades({ busca, categoria, setCategoria, irPuesto, abierta, s
   );
 }
 
-export default function FuncionesPuestos() {
-  const [vista, setVista] = useState("puestos");
+export default function FuncionesPuestos({ vistaInicial = "puestos" }) {
+  const [vista, setVista] = useState(vistaInicial);
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState("");
   const [puestoAbierto, setPuestoAbierto] = useState(null);
@@ -262,7 +262,7 @@ export default function FuncionesPuestos() {
     <div className="fun">
       <style>{CSS}</style>
       <header className="fun-cabecera">
-        <h2>Funciones de cada puesto</h2>
+        <h2>{vista === "puestos" ? "Funciones de cada puesto" : "Evaluación de actividades"}</h2>
         <p>
           Versión {FUNCIONES_VERSION}, {fechaLarga(FUNCIONES_FECHA)}
         </p>

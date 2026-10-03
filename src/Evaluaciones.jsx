@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import EvaluacionER from './EvaluacionER'
-import PlanPreventivo from './PlanPreventivo'
+import BarraAlta from './BarraAlta'
 import {
   armarFilasER, filaDesdeMatriz, filasDeCheck, fusionarFilas, nuevoId, ordenarFilas,
 } from './evalLogic'
@@ -318,7 +318,7 @@ function PasoCheck({ ctx, onContinuar, onVolver, trabajando }) {
 }
 
 // ---------------------------------------------------------------------
-export default function Evaluaciones({ supabase }) {
+export default function Evaluaciones({ supabase, onActualizar }) {
   const [vista, setVista] = useState('lista') // lista | nueva | creador | check | er | pap
   const [lista, setLista] = useState([])
   const [cargandoLista, setCargandoLista] = useState(true)
@@ -460,25 +460,18 @@ export default function Evaluaciones({ supabase }) {
       <EvaluacionER
         supabase={supabase} evaluacion={er.evaluacion} filasIniciales={er.filas}
         catalogo={er.catalogo} riesgos={er.riesgos} onVolver={aLista}
-        onPlan={(filas, estado) => {
-          setEr((e) => ({ ...e, filas, evaluacion: { ...e.evaluacion, estado } }))
-          setVista('pap')
-        }}
       />
     )
-  }
-  if (vista === 'pap') {
-    return <PlanPreventivo supabase={supabase} evaluacion={er.evaluacion} onVolver={() => setVista('er')} />
   }
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Evaluaciones</h2>
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={() => { setError(''); setVista('nueva') }} style={{ padding: '8px 16px', fontWeight: 600 }}>
-          Nueva evaluación
-        </button>
-      </div>
+      <h2>Evaluación de Riesgos</h2>
+      <BarraAlta
+        resumen={<span><b>{lista.length}</b> {lista.length === 1 ? 'evaluación' : 'evaluaciones'} · <b>{lista.filter((e) => e.estado === 'cerrada').length}</b> cerradas</span>}
+        onManual={() => { setError(''); setVista('nueva') }} textoManual="Nueva evaluación"
+        onMasivo={onActualizar} textoMasivo="Importar medidas, matriz y check"
+      />
       {error && <p style={aviso}>{error}</p>}
       {cargandoLista && <p>Cargando...</p>}
       {!cargandoLista && lista.length === 0 && <p className="vacio">Todavía no hay evaluaciones.</p>}

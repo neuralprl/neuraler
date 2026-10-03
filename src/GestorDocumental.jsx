@@ -3,19 +3,26 @@ import {
   agrupar, extension, fechaES, filtrarDocumentos, iconoDe, nombreSeguro, rutaDe, sePuedeVer, tamanoLegible, validarDocumento, MAX_BYTES,
 } from './gestorLogic'
 
-// Uso:
-//   Técnico:  <GestorDocumental supabase={supabase} />               (sube, renombra y borra)
-//   Centro:   <GestorDocumental supabase={supabase} soloLectura />   (ve y descarga los generales y los de su centro)
+// Dos partes, cada una en su pantalla:
+//   <GestorDocumental supabase={supabase} ambito="general" />   Procedimientos: los ven todos los centros
+//   <GestorDocumental supabase={supabase} ambito="centro" />    Documentos específicos: cada centro ve solo los suyos
+// El técnico sube, renombra y borra (soloLectura = false). El usuario de centro solo ve y descarga (soloLectura).
+// Los archivos están en un almacenamiento privado de Supabase (en la nube): se abren desde cualquier dispositivo con la sesión iniciada.
 
 const campo = { display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, fontSize: 14, textAlign: 'left' }
 const ancho = { width: '100%', boxSizing: 'border-box' }
 const aviso = { color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }
 const BUCKET = 'documentos'
 
+export const TEMAS = {
+  general: { color: '#1f3864', fondo: '#eef3fb', etiqueta: 'GENERAL', titulo: 'Procedimientos', sub: 'Documentos generales: los ven todos los centros.' },
+  centro: { color: '#1b6e4a', fondo: '#eaf6f0', etiqueta: 'ESPECÍFICOS', titulo: 'Documentos específicos por centro', sub: 'Cada centro ve solo los suyos.' },
+}
+
 function Icono({ doc }) {
   const { etiqueta, color } = iconoDe(doc)
   return (
-    <svg width="44" height="54" viewBox="0 0 44 54" aria-hidden="true" style={{ flex: 'none' }}>
+    <svg width="38" height="46" viewBox="0 0 44 54" aria-hidden="true" style={{ flex: 'none' }}>
       <path d="M4 2h26l10 10v40a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke={color} strokeWidth="2" />
       <path d="M30 2v10h10" fill="#eceff1" stroke={color} strokeWidth="2" />
       <rect x="2" y="30" width="38" height="16" fill={color} />
@@ -24,40 +31,48 @@ function Icono({ doc }) {
   )
 }
 
-function Tarjeta({ doc, soloLectura, ocupado, onVer, onDescargar, onRenombrar, onBorrar }) {
+function Fila({ doc, tema, par, soloLectura, ocupado, onVer, onDescargar, onRenombrar, onBorrar }) {
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', border: '1px solid #d9d9d9', borderRadius: 10, padding: 12, background: '#fff', textAlign: 'left' }}>
+    <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '10px 14px', borderTop: '1px solid #e3e8ec', borderLeft: `5px solid ${tema.color}`, background: par ? '#fff' : '#fafbfc' }}>
       <Icono doc={doc} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 650, overflowWrap: 'anywhere' }}>{doc.nombre}</div>
-        <div style={{ fontSize: 12, opacity: 0.65, margin: '2px 0 8px', overflowWrap: 'anywhere' }}>
+      <div style={{ flex: '1 1 260px', minWidth: 0, textAlign: 'left' }}>
+        <div style={{ fontWeight: 650, fontSize: 15, overflowWrap: 'anywhere' }}>{doc.nombre}</div>
+        <div style={{ fontSize: 12, opacity: 0.65, overflowWrap: 'anywhere' }}>
           {doc.tipo === 'enlace' ? 'Enlace externo' : `${doc.nombre_archivo ?? ''}${doc.tamano ? ` · ${tamanoLegible(doc.tamano)}` : ''}`} · {fechaES(doc.creado_en)}
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(sePuedeVer(doc)) && <button className="secundario" disabled={ocupado} onClick={() => onVer(doc)}>{doc.tipo === 'enlace' ? 'Abrir' : 'Ver'}</button>}
-          {doc.tipo === 'archivo' && <button className="secundario" disabled={ocupado} onClick={() => onDescargar(doc)}>Descargar</button>}
-          {!soloLectura && <button className="secundario" disabled={ocupado} onClick={() => onRenombrar(doc)}>Renombrar</button>}
-          {!soloLectura && <button className="secundario" disabled={ocupado} onClick={() => onBorrar(doc)} style={{ color: '#b00020' }}>Borrar</button>}
-        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {sePuedeVer(doc) && <button className="secundario" disabled={ocupado} onClick={() => onVer(doc)}>{doc.tipo === 'enlace' ? 'Abrir' : 'Ver'}</button>}
+        {doc.tipo === 'archivo' && <button className="secundario" disabled={ocupado} onClick={() => onDescargar(doc)}>Descargar</button>}
+        {!soloLectura && <button className="secundario" disabled={ocupado} onClick={() => onRenombrar(doc)}>Renombrar</button>}
+        {!soloLectura && <button className="secundario" disabled={ocupado} onClick={() => onBorrar(doc)} style={{ color: '#b00020' }}>Borrar</button>}
       </div>
     </div>
   )
 }
 
-function Bloque({ titulo, docs, ...resto }) {
+// Lista vertical. grupos: [{ titulo, docs }]; en la parte general hay un solo grupo sin título.
+export function ListaDocumentos({ tema, grupos, ...acciones }) {
   return (
-    <section style={{ marginBottom: 22 }}>
-      <h3 style={{ margin: '0 0 8px', borderLeft: '5px solid #1f3864', paddingLeft: 10 }}>{titulo} <span style={{ fontWeight: 400, opacity: 0.6, fontSize: 14 }}>({docs.length})</span></h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
-        {docs.map((d) => <Tarjeta key={d.id} doc={d} {...resto} />)}
-      </div>
-    </section>
+    <div style={{ border: `1px solid ${tema.color}`, borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
+      {grupos.map((g, gi) => (
+        <div key={g.clave ?? gi}>
+          {g.titulo && (
+            <div style={{ background: tema.fondo, color: tema.color, fontWeight: 700, padding: '8px 14px', borderTop: gi ? `2px solid ${tema.color}` : undefined, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <span>{g.titulo}</span><span style={{ fontWeight: 400, opacity: 0.8 }}>{g.docs.length} {g.docs.length === 1 ? 'documento' : 'documentos'}</span>
+            </div>
+          )}
+          {g.docs.map((d, i) => <Fila key={d.id} doc={d} tema={tema} par={i % 2 === 0} {...acciones} />)}
+        </div>
+      ))}
+    </div>
   )
 }
 
-const FORM0 = { tipo: 'archivo', ambito: 'general', centro_id: '', nombre: '', archivo: null, url: '' }
+const FORM0 = { tipo: 'archivo', centro_id: '', nombre: '', archivo: null, url: '' }
 
-export default function GestorDocumental({ supabase, soloLectura = false }) {
+export default function GestorDocumental({ supabase, ambito = 'general', soloLectura = false, onIrOtra }) {
+  const tema = TEMAS[ambito]
   const [docs, setDocs] = useState(null)
   const [centros, setCentros] = useState([])
   const [q, setQ] = useState('')
@@ -70,7 +85,7 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
 
   async function cargar() {
     const [d, c] = await Promise.all([
-      supabase.from('documentos').select('*').order('nombre'),
+      supabase.from('documentos').select('*').eq('ambito', ambito).order('nombre'),
       supabase.from('centros').select('id,codigo,nombre').order('codigo'),
     ])
     if (d.error) {
@@ -79,11 +94,14 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
     } else { setError(''); setDocs(d.data) }
     if (!c.error) setCentros(c.data)
   }
-  useEffect(() => { cargar() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDocs(null); setForm(null); cargar() }, [ambito]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nombresCentros = useMemo(() => Object.fromEntries(centros.map((c) => [c.id, `${c.codigo} · ${c.nombre}`])), [centros])
-  const visibles = useMemo(() => filtrarDocumentos(docs ?? [], { q, centro: centroFiltro }), [docs, q, centroFiltro])
-  const grupos = useMemo(() => agrupar(visibles, nombresCentros), [visibles, nombresCentros])
+  const visibles = useMemo(() => filtrarDocumentos(docs ?? [], { q, centro: ambito === 'centro' ? centroFiltro : '' }), [docs, q, centroFiltro, ambito])
+  const grupos = useMemo(() => {
+    if (ambito === 'general') return visibles.length ? [{ clave: 'general', titulo: null, docs: agrupar(visibles).generales }] : []
+    return agrupar(visibles, nombresCentros).porCentro.map((g) => ({ clave: g.centro_id, titulo: g.nombre, docs: g.docs }))
+  }, [visibles, nombresCentros, ambito])
 
   // Enlace temporal (el almacenamiento es privado). Se abre en una pestaña creada al pulsar, para que el navegador no la bloquee.
   async function firmar(doc, descargar) {
@@ -109,18 +127,19 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
   }
 
   async function guardar() {
-    const probs = validarDocumento(form)
+    const datos = { ...form, ambito }
+    const probs = validarDocumento(datos)
     setErrores(probs)
     if (probs.length) return
     setOcupado(true); setError(''); setMensaje('')
     const id = crypto.randomUUID()
-    const comun = { id, ambito: form.ambito, centro_id: form.ambito === 'centro' ? form.centro_id : null, nombre: form.nombre.trim() }
+    const comun = { id, ambito, centro_id: ambito === 'centro' ? form.centro_id : null, nombre: form.nombre.trim() }
     try {
       if (form.tipo === 'enlace') {
         const { error: err } = await supabase.from('documentos').insert({ ...comun, tipo: 'enlace', url: form.url.trim() })
         if (err) throw err
       } else {
-        const ruta = rutaDe({ ambito: comun.ambito, centro_id: comun.centro_id, id, nombreArchivo: form.archivo.name })
+        const ruta = rutaDe({ ambito, centro_id: comun.centro_id, id, nombreArchivo: form.archivo.name })
         const { error: e1 } = await supabase.storage.from(BUCKET).upload(ruta, form.archivo, { contentType: form.archivo.type || 'application/octet-stream', upsert: false })
         if (e1) throw e1
         const { error: e2 } = await supabase.from('documentos').insert({
@@ -158,14 +177,21 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const acc = { soloLectura, ocupado, onVer: ver, onDescargar: descargar, onRenombrar: renombrar, onBorrar: borrar }
-  const hay = visibles.length > 0
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Gestor documental</h2>
-      <p style={{ opacity: 0.8, marginTop: 0 }}>
-        {soloLectura ? 'Documentos generales y de tu centro.' : 'Documentos generales, que ven todos los centros, y específicos de cada centro, que solo ve ese centro.'}
-      </p>
+      <div style={{ background: tema.color, color: '#fff', borderRadius: 10, padding: '12px 18px', marginBottom: 14, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ background: '#fff', color: tema.color, fontWeight: 800, fontSize: 12, letterSpacing: 1, borderRadius: 6, padding: '3px 10px' }}>{tema.etiqueta}</span>
+        <div style={{ flex: '1 1 240px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{tema.titulo}</div>
+          <div style={{ fontSize: 13, opacity: 0.9 }}>{tema.sub}</div>
+        </div>
+        {onIrOtra && (
+          <button type="button" onClick={onIrOtra} style={{ background: 'transparent', color: '#fff', border: '1px solid #fff', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', boxShadow: 'none' }}>
+            {ambito === 'general' ? 'Ver documentos específicos →' : 'Ver procedimientos generales →'}
+          </button>
+        )}
+      </div>
 
       {error && <p style={aviso}>{error}</p>}
       {mensaje && <p style={{ color: '#2e7d32' }}>{mensaje}</p>}
@@ -178,29 +204,25 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
           </>
         )}
         <label style={campo}><span>Buscar</span><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre del documento" /></label>
-        {!soloLectura && (
+        {ambito === 'centro' && centros.length > 1 && (
           <label style={campo}>
-            <span>Mostrar</span>
+            <span>Centro</span>
             <select value={centroFiltro} onChange={(e) => setCentroFiltro(e.target.value)}>
               <option value="">Todos</option>
-              <option value="general">Solo generales</option>
               {centros.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nombre}</option>)}
             </select>
           </label>
         )}
+        {docs && <span style={{ opacity: 0.7, paddingBottom: 8 }}>{visibles.length} {visibles.length === 1 ? 'documento' : 'documentos'}</span>}
       </div>
 
       {form && (
-        <div style={{ border: '2px solid #1f3864', borderRadius: 10, padding: 14, marginBottom: 18 }}>
-          <h3 style={{ margin: '0 0 10px' }}>{form.tipo === 'enlace' ? 'Añadir enlace' : 'Subir archivo'}</h3>
+        <div style={{ border: `2px solid ${tema.color}`, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <h3 style={{ margin: '0 0 10px' }}>{form.tipo === 'enlace' ? 'Añadir enlace' : 'Subir archivo'} · {ambito === 'general' ? 'general (lo ven todos los centros)' : 'específico de un centro'}</h3>
           {errores.length > 0 && <div style={aviso}>{errores.map((e, i) => <div key={i}>{e}</div>)}</div>}
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', margin: '8px 0' }}>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="radio" name="ambito" checked={form.ambito === 'general'} onChange={() => set('ambito', 'general')} /> General (lo ven todos los centros)</label>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="radio" name="ambito" checked={form.ambito === 'centro'} onChange={() => set('ambito', 'centro')} /> Específico de un centro</label>
-          </div>
-          {form.ambito === 'centro' && (
-            <label style={{ ...campo, maxWidth: 420, marginBottom: 10 }}>
-              <span>Centro</span>
+          {ambito === 'centro' && (
+            <label style={{ ...campo, maxWidth: 420, margin: '8px 0 10px' }}>
+              <span>Centro al que pertenece</span>
               <select style={ancho} value={form.centro_id} onChange={(e) => set('centro_id', e.target.value)}>
                 <option value="">— elige —</option>
                 {centros.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nombre}</option>)}
@@ -208,13 +230,13 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
             </label>
           )}
           {form.tipo === 'enlace' ? (
-            <label style={{ ...campo, marginBottom: 10 }}>
+            <label style={{ ...campo, margin: '8px 0 10px' }}>
               <span>Enlace (SharePoint, OneDrive u otro, con https://)</span>
               <input style={ancho} value={form.url} onChange={(e) => set('url', e.target.value)} placeholder="https://..." />
               <small style={{ opacity: 0.7 }}>Quien lo abra necesita tener permiso en el sitio de origen. Si no lo tiene, es mejor subir el archivo.</small>
             </label>
           ) : (
-            <label style={{ ...campo, marginBottom: 10 }}>
+            <label style={{ ...campo, margin: '8px 0 10px' }}>
               <span>Archivo (máximo {tamanoLegible(MAX_BYTES)})</span>
               <input type="file" onChange={(e) => {
                 const archivo = e.target.files?.[0] ?? null
@@ -234,9 +256,8 @@ export default function GestorDocumental({ supabase, soloLectura = false }) {
       )}
 
       {!docs && <p>Cargando...</p>}
-      {docs && !hay && !error && <p className="vacio">{docs.length ? 'Ningún documento coincide.' : 'Todavía no hay documentos.'}</p>}
-      {grupos.generales.length > 0 && <Bloque titulo="Documentos generales" docs={grupos.generales} {...acc} />}
-      {grupos.porCentro.map((g) => <Bloque key={g.centro_id} titulo={soloLectura ? `Documentos de ${g.nombre}` : g.nombre} docs={g.docs} {...acc} />)}
+      {docs && grupos.length === 0 && !error && <p className="vacio">{docs.length ? 'Ningún documento coincide.' : 'Todavía no hay documentos.'}</p>}
+      {grupos.length > 0 && <ListaDocumentos tema={tema} grupos={grupos} {...acc} />}
     </div>
   )
 }

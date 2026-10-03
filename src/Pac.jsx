@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ImportarPac from './ImportarPac'
+import BarraAlta from './BarraAlta'
 import {
   ESTADOS_PAC, ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, agruparItems, conValoracion, evaluarRegla,
   incidenciaNueva, itemVisible, prioridadPAC, respuestasPrevias,
@@ -219,7 +220,7 @@ function ItemFila({ item, r, fechaVisita, hoy, onCambio }) {
 }
 
 // ---------------------------------------------------------------------
-function VisitaPac({ supabase, visitaId, onVolver }) {
+export function VisitaPac({ supabase, visitaId, onVolver }) {
   const [datos, setDatos] = useState(null)
   const [resp, setResp] = useState({})
   const [overrides, setOverrides] = useState({})
@@ -400,7 +401,7 @@ function VisitaPac({ supabase, visitaId, onVolver }) {
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Visita al centro (PAC)</h2>
+      <h2>Evaluación de lugar de trabajo</h2>
       <p>
         <b>{centro.codigo} · {centro.nombre}</b><br />
         Fecha: {fechaES(fechaVisita)} · <b>{cerrada ? 'Cerrada' : 'Borrador'}</b>
@@ -573,17 +574,19 @@ export default function Pac({ supabase }) {
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Visitas PAC</h2>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={() => setVista('nueva')} disabled={!nItems} style={{ padding: '8px 16px', fontWeight: 600 }}>Nueva visita</button>
-        <button className="secundario" onClick={() => setVista('importar')}>Importar lista del PAC</button>
-      </div>
+      <h2>Evaluación de lugar de trabajo</h2>
+      <p style={{ opacity: 0.8, marginTop: 0 }}>Evaluación del lugar de trabajo en cada centro. Sus incidencias pasan a la Planificación Acción Correctiva (PAC).</p>
+      <BarraAlta
+        resumen={<span><b>{visitas.length}</b> {visitas.length === 1 ? 'evaluación' : 'evaluaciones'} · <b>{nItems ?? 0}</b> puntos en la lista de comprobación</span>}
+        onManual={() => setVista('nueva')} textoManual="Nueva evaluación del lugar de trabajo" deshabilitadoManual={!nItems}
+        onMasivo={() => setVista('importar')} textoMasivo="Importar lista de comprobación"
+      />
       {error && <p style={aviso}>{error}</p>}
       {!cargando && nItems === 0 && !error && (
         <p className="vacio">Todavía no hay lista de comprobación. Impórtala desde el Excel para poder empezar una visita.</p>
       )}
       {cargando && <p>Cargando...</p>}
-      {!cargando && nItems > 0 && visitas.length === 0 && <p className="vacio">Todavía no hay visitas.</p>}
+      {!cargando && nItems > 0 && visitas.length === 0 && <p className="vacio">Todavía no hay evaluaciones del lugar de trabajo.</p>}
       {!cargando && visitas.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>

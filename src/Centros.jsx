@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ImportarCentros from './ImportarCentros'
+import BarraAlta from './BarraAlta'
 import { CAMPOS_BOOL, ETIQUETAS, OPCIONES, centroVacio } from './centrosLogic'
 
 // Uso: <Centros supabase={supabase} />
@@ -336,12 +337,20 @@ export default function Centros({ supabase }) {
 
   return (
     <div>
-      <h2>Centros</h2>
+      <h2>Datos de los centros</h2>
+      <BarraAlta
+        resumen={(
+          <span>
+            <b>{centros.length}</b> {centros.length === 1 ? 'centro' : 'centros'} ·{' '}
+            <b>{centros.filter((c) => c.horario === '24/7/365').length}</b> abiertos 24 h ·{' '}
+            <b>{centros.filter((c) => c.turnos_noche).length}</b> con turno de noche ·{' '}
+            <b>{centros.filter((c) => c.regimen === 'hospitalizacion' || c.regimen === 'residencial').length}</b> con hospitalización o residencia
+          </span>
+        )}
+        onManual={() => { setEditando(null); setVista('form') }} textoManual="Crear centro manualmente"
+        onMasivo={() => setVista('importar')} textoMasivo="Subida masiva desde Excel"
+      />
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={() => { setEditando(null); setVista('form') }} style={{ padding: '8px 16px', fontWeight: 600 }}>
-          Nuevo centro
-        </button>
-        <button className="secundario" onClick={() => setVista('importar')}>Importar desde Excel</button>
         <input
           placeholder="Buscar por código, nombre o municipio" value={buscar}
           onChange={(e) => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 220 }}

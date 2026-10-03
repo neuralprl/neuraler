@@ -162,7 +162,7 @@ export default function Agresiones({ supabase, centro }) {
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Registro de agresiones</h2>
+      <h2>Registro de Agresiones</h2>
       {esCentro
         ? <p><b>{centro.codigo} · {centro.nombre}</b></p>
         : (

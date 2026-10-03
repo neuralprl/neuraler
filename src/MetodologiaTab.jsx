@@ -184,7 +184,7 @@ export default function MetodologiaTab({ versionEvaluacion }) {
       <style>{CSS}</style>
 
       <header className="met-cabecera">
-        <h2>Metodología de evaluación</h2>
+        <h2>Metodología del Sistema</h2>
         <p>
           Versión {METODOLOGIA_VERSION}, vigente desde el {fechaLarga(METODOLOGIA_FECHA)}
         </p>

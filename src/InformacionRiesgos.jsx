@@ -44,7 +44,7 @@ export default function InformacionRiesgos({ supabase }) {
 
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Información de riesgos (IR)</h2>
+      <h2>Información de Riesgos (IR)</h2>
       <p style={{ opacity: 0.8, marginTop: 0 }}>Documento de información de riesgos de cada evaluación, en Word o PDF.</p>
       {error && <p style={aviso}>{error}</p>}
       <input type="search" placeholder="Buscar por centro o puesto" value={busca} onChange={(e) => setBusca(e.target.value)} style={{ padding: '7px 10px', margin: '0 0 12px', width: '100%', maxWidth: 360, boxSizing: 'border-box' }} />

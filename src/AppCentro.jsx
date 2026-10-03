@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import PlanPreventivo from './PlanPreventivo'
+import PanelCentro from './PanelCentro'
+import PapLista from './PapLista'
+import InformacionRiesgos from './InformacionRiesgos'
+import HojasEvaluacion from './HojasEvaluacion'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
 import Agresiones from './Agresiones'
 import GestorDocumental from './GestorDocumental'
 import { FormIncidencia } from './Pac'
 import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
-import { descargar, filasPAC, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
+import { filasPAC } from './documentos'
 import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, prioridadPAC } from './pacLogic'
 import { fechaES, hoyISO } from './planLogic'
 
-// Aplicación del usuario de centro (acceso restringido). Solo ve la evaluación asignada:
-// su evaluación (solo lectura), su IR, el PAP y el PAC (donde solo cambia el estado) y la metodología.
+// Aplicación del usuario de centro (acceso restringido). Entra en un panel con las acciones que tiene que cerrar y sus plazos.
+// Solo ve lo suyo: su evaluación (solo lectura), el PAP y el PAC (donde solo cambia el estado), su registro de agresiones y sus documentos.
 // La seguridad real la imponen las políticas de Supabase; esta pantalla solo muestra lo permitido.
 
 const aviso = { color: '#b00020', background: '#fdecea', padding: 10, borderRadius: 6 }
@@ -31,28 +34,13 @@ function VistaEvaluacion({ supabase, evaluacion }) {
       })
   }, [supabase, evaluacion.id])
 
-  async function bajarWord() {
-    setError('')
-    try { descargar(await wordIR(evaluacion, filas), nombreArchivo('IR', evaluacion, 'docx')) }
-    catch (err) { setError('No se pudo generar el Word: ' + err.message) }
-  }
-  function verPDF() {
-    setError('')
-    try { imprimir(htmlIR(evaluacion, filas)) } catch (err) { setError(err.message) }
-  }
-
   return (
     <div style={{ textAlign: 'left' }}>
-      <h2>Evaluación de riesgos</h2>
+      <h2>Evaluación de Riesgos</h2>
       <p>
         <b>{evaluacion.centro.codigo} · {evaluacion.centro.nombre}</b><br />
         Puesto: <b>{evaluacion.puesto.nombre}</b> · {fechaES(evaluacion.fecha)}
       </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-        <b>Información de riesgos (IR):</b>
-        <button className="secundario" onClick={bajarWord} disabled={!filas}>Descargar Word</button>
-        <button className="secundario" onClick={verPDF} disabled={!filas}>Generar PDF</button>
-      </div>
       {error && <p style={aviso}>{error}</p>}
       {!filas && !error && <p>Cargando...</p>}
       {filas && filas.length === 0 && <p className="vacio">Esta evaluación no tiene riesgos.</p>}
@@ -183,7 +171,7 @@ function PacCentro({ supabase, centroId }) {
   if (!visita) {
     return (
       <div style={{ textAlign: 'left' }}>
-        <h2>Visitas PAC</h2>
+        <h2>Planificación Acción Correctiva (PAC)</h2>
         {error && <p style={aviso}>{error}</p>}
         {visitas?.length === 0 && <p className="vacio">Todavía no hay visitas registradas en el centro.</p>}
         {visitas?.map((v) => (
@@ -236,10 +224,42 @@ function PacCentro({ supabase, centroId }) {
 }
 
 // ---------------------------------------------------------------------
+function ElegirCentro({ centros, onElegir, titulo }) {
+  return (
+    <div style={{ textAlign: 'left' }}>
+      <h2>{titulo}</h2>
+      <p>Elige el centro.</p>
+      {centros.map((c) => (
+        <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
+          <span>{c.codigo} · {c.nombre}</span>
+          <button className="secundario" onClick={() => onElegir(c.id)}>Abrir</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const SECCIONES = [
+  { id: 'panel', texto: 'Panel' },
+  { id: 'evaluacion', texto: 'Evaluación de Riesgos' },
+  { id: 'pap', texto: 'PAP' },
+  { id: 'pac', texto: 'PAC' },
+  { id: 'agresiones', texto: 'Registro de Agresiones' },
+  { id: 'epis', texto: 'EPIs' },
+  { id: 'form', texto: 'FORM' },
+  { id: 'ir', texto: 'IR' },
+  { id: 'funciones', texto: 'Funciones de cada puesto' },
+  { id: 'metodologia', texto: 'Metodología del Sistema' },
+  { id: 'procedimientos', texto: 'Procedimientos' },
+  { id: 'docs', texto: 'Documentos de mi centro' },
+]
+
 export default function AppCentro({ supabase, sesion }) {
   const [evals, setEvals] = useState(null)
-  const [sel, setSel] = useState(null)
-  const [seccion, setSeccion] = useState('evaluacion')
+  const [seccion, setSeccion] = useState('panel')
+  const [evalSel, setEvalSel] = useState(null)
+  const [papInicial, setPapInicial] = useState(null)
+  const [centroSel, setCentroSel] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -247,21 +267,21 @@ export default function AppCentro({ supabase, sesion }) {
       .order('fecha', { ascending: false })
       .then(({ data, error: err }) => {
         if (err) { setError(err.message); return }
-        const lista = data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, centro: e.centros, puesto: e.puestos }))
-        setEvals(lista)
-        if (lista.length === 1) setSel(lista[0])
+        setEvals(data.map((e) => ({ id: e.id, fecha: e.fecha, estado: e.estado, centro: e.centros, puesto: e.puestos })))
       })
   }, [supabase])
 
-  const SECCIONES = [
-    { id: 'evaluacion', texto: 'Evaluación' },
-    { id: 'pap', texto: 'Plan de acción (PAP)' },
-    { id: 'pac', texto: 'Visitas PAC' },
-    { id: 'agresiones', texto: 'Registro de agresiones' },
-    { id: 'metodologia', texto: 'Metodología' },
-    { id: 'funciones', texto: 'Funciones de cada puesto' },
-    { id: 'gestor', texto: 'Gestor documental' },
-  ]
+  const centros = useMemo(() => [...new Map((evals ?? []).map((e) => [e.centro?.id, e.centro])).values()].filter(Boolean), [evals])
+  const centro = centros.length === 1 ? centros[0] : centros.find((c) => c.id === centroSel) ?? null
+
+  function irA(destino, id) {
+    if (destino === 'pap') setPapInicial(id ?? null)
+    if (destino === 'pac' || destino === 'agresiones') { if (id) setCentroSel(id) }
+    setSeccion(destino)
+  }
+  function ir(destino) { setPapInicial(null); setSeccion(destino) }
+
+  const evalElegida = evals && (evals.length === 1 ? evals[0] : evals.find((e) => e.id === evalSel) ?? null)
 
   return (
     <div className="app">
@@ -277,38 +297,49 @@ export default function AppCentro({ supabase, sesion }) {
         {!evals && !error && <p>Cargando...</p>}
         {evals && evals.length === 0 && <p className="vacio">Todavía no tienes ninguna evaluación asignada.</p>}
 
-        {evals && evals.length > 1 && !sel && (
-          <div style={{ textAlign: 'left' }}>
-            <h2>Tus evaluaciones</h2>
-            {evals.map((e) => (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
-                <span>{e.centro?.nombre} · {e.puesto?.nombre} · {fechaES(e.fecha)}</span>
-                <button className="secundario" onClick={() => { setSel(e); setSeccion('evaluacion') }}>Abrir</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {sel && (
+        {evals && evals.length > 0 && (
           <>
-            <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               {SECCIONES.map((s) => (
-                <button key={s.id} className="secundario" onClick={() => setSeccion(s.id)} aria-current={seccion === s.id ? 'page' : undefined}
+                <button key={s.id} className="secundario" onClick={() => ir(s.id)} aria-current={seccion === s.id ? 'page' : undefined}
                   style={seccion === s.id ? { fontWeight: 700, textDecoration: 'underline' } : undefined}>
                   {s.texto}
                 </button>
               ))}
-              {evals.length > 1 && <button className="secundario" onClick={() => setSel(null)}>Cambiar de evaluación</button>}
             </nav>
-            {seccion === 'evaluacion' && <VistaEvaluacion supabase={supabase} evaluacion={sel} />}
-            {seccion === 'pap' && (
-              <PlanPreventivo supabase={supabase} evaluacion={sel} soloEstado onVolver={() => setSeccion('evaluacion')} />
-            )}
-            {seccion === 'pac' && <PacCentro supabase={supabase} centroId={sel.centro.id} />}
-            {seccion === 'agresiones' && <Agresiones supabase={supabase} centro={sel.centro} />}
+
+            {seccion === 'panel' && <PanelCentro supabase={supabase} evals={evals} onIr={irA} />}
+
+            {seccion === 'evaluacion' && (evalElegida
+              ? (
+                <>
+                  {evals.length > 1 && <p><button className="secundario" onClick={() => setEvalSel(null)}>Cambiar de evaluación</button></p>}
+                  <VistaEvaluacion supabase={supabase} evaluacion={evalElegida} />
+                </>
+              )
+              : (
+                <div style={{ textAlign: 'left' }}>
+                  <h2>Tus evaluaciones</h2>
+                  {evals.map((e) => (
+                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
+                      <span>{e.centro?.nombre} · {e.puesto?.nombre} · {fechaES(e.fecha)}</span>
+                      <button className="secundario" onClick={() => setEvalSel(e.id)}>Abrir</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+            {seccion === 'pap' && <PapLista key={papInicial ?? 'lista'} supabase={supabase} soloEstado inicial={papInicial} />}
+
+            {seccion === 'pac' && (centro ? <PacCentro supabase={supabase} centroId={centro.id} /> : <ElegirCentro centros={centros} titulo="Planificación Acción Correctiva (PAC)" onElegir={setCentroSel} />)}
+            {seccion === 'agresiones' && (centro ? <Agresiones supabase={supabase} centro={centro} /> : <ElegirCentro centros={centros} titulo="Registro de Agresiones" onElegir={setCentroSel} />)}
+            {seccion === 'ir' && <InformacionRiesgos supabase={supabase} />}
+            {seccion === 'epis' && <HojasEvaluacion supabase={supabase} modo="epis" />}
+            {seccion === 'form' && <HojasEvaluacion supabase={supabase} modo="formacion" />}
+            {seccion === 'procedimientos' && <GestorDocumental supabase={supabase} ambito="general" soloLectura onIrOtra={() => ir('docs')} />}
+            {seccion === 'docs' && <GestorDocumental supabase={supabase} ambito="centro" soloLectura onIrOtra={() => ir('procedimientos')} />}
             {seccion === 'metodologia' && <MetodologiaTab />}
             {seccion === 'funciones' && <FuncionesPuestos />}
-            {seccion === 'gestor' && <GestorDocumental supabase={supabase} soloLectura />}
           </>
         )}
       </main>

@@ -349,6 +349,99 @@ export async function excelPAC(ev, filas) {
 }
 
 
+// ---------- Hojas de EPI y de formación (se construyen con la evaluación) ----------
+const riesgosTxt = (rs) => rs.map((x) => `${x.r} · ${x.nombre}`).join('; ')
+
+export function htmlEPI(ev, datos) {
+  const filas = datos.epis.map((e) => `<tr><td>${esc(e.nombre)}</td><td>${esc(e.norma)}</td><td>${e.proporcionar ? 'La empresa lo proporciona' : 'Uso obligatorio'}</td><td>${esc(riesgosTxt(e.riesgos))}</td></tr>`).join('')
+  const otros = datos.otros.length
+    ? `<h2>Otras medidas que mencionan equipos de protección</h2><ul>${datos.otros.map((o) => `<li>${esc(o.texto)} <small>(${esc(riesgosTxt(o.riesgos))})</small></li>`).join('')}</ul>`
+    : ''
+  const registro = Array.from({ length: 6 }, () => '<tr><td style="height:26px"></td><td></td><td></td><td></td></tr>').join('')
+  const cuerpo = `${cabecera('Hoja de equipos de protección individual (EPI) del puesto', ev)}
+<p class="nota">EPI que se desprenden de las medidas de la evaluación de riesgos del puesto. Su elección, entrega y uso se rigen por el Real Decreto 773/1997.</p>
+${filas ? `<table><thead><tr><th>EPI</th><th>Norma</th><th>Qué hay que hacer</th><th>Riesgos para los que se necesita</th></tr></thead><tbody>${filas}</tbody></table>` : '<p>La evaluación de este puesto no exige equipos de protección individual.</p>'}
+${otros}
+<h2>Registro de entrega de EPI</h2>
+<table><thead><tr><th style="width:14%">Fecha</th><th>EPI entregado</th><th>Nombre y apellidos</th><th style="width:22%">Firma del trabajador</th></tr></thead><tbody>${registro}</tbody></table>`
+  return documentoHTML(nombreArchivo('EPI', ev, 'pdf').replace(/\.pdf$/, ''), cuerpo)
+}
+
+export function htmlFOR(ev, grupos) {
+  const bloques = grupos.map((g) => `<div class="bloque"><h2>${esc(g.r)} · ${esc(g.riesgo)}</h2><ul>${g.temas.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')
+  const registro = Array.from({ length: 6 }, () => '<tr><td style="height:26px"></td><td></td><td></td><td></td></tr>').join('')
+  const cuerpo = `${cabecera('Contenido formativo del puesto de trabajo', ev)}
+<p class="nota">Formación en prevención de riesgos laborales que se desprende de las medidas de la evaluación del puesto, conforme al artículo 19 de la Ley 31/1995.</p>
+${bloques || '<p>La evaluación de este puesto no incluye medidas de formación.</p>'}
+<h2>Registro de formación recibida</h2>
+<table><thead><tr><th style="width:14%">Fecha</th><th>Tema</th><th style="width:12%">Duración</th><th>Nombre, apellidos y firma</th></tr></thead><tbody>${registro}</tbody></table>`
+  return documentoHTML(nombreArchivo('FOR', ev, 'pdf').replace(/\.pdf$/, ''), cuerpo)
+}
+
+function construirDocHoja(docx, ev, titulo, nota, bloques, cabeceraRegistro, tituloRegistro) {
+  const { Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType } = docx
+  const p = (texto, o = {}) => new Paragraph({ spacing: { after: 80 }, ...o, children: [new TextRun({ text: texto, ...(o.run ?? {}) })] })
+  const celda = (t, negrita = false) => new TableCell({ margins: { top: 80, bottom: 80, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: negrita, size: 18 })] })] })
+  const tabla = (cab, filas) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({ tableHeader: true, children: cab.map((c) => celda(c, true)) }), ...filas.map((f) => new TableRow({ cantSplit: true, children: f.map((c) => celda(c)) }))],
+  })
+  const hijos = [
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: titulo, bold: true, size: 34 })] }),
+    p(`Centro: ${ev.centro.codigo} · ${ev.centro.nombre}`), p(`Puesto de trabajo: ${ev.puesto.nombre}`), p(`Fecha de la evaluación: ${fechaES(ev.fecha)}`),
+    p(nota, { run: { italics: true, size: 18 }, spacing: { before: 120, after: 160 } }),
+    ...bloques(docx, p),
+    new Paragraph({ spacing: { before: 280, after: 80 }, children: [new TextRun({ text: tituloRegistro, bold: true, size: 25 })] }),
+    tabla(cabeceraRegistro, Array.from({ length: 6 }, () => cabeceraRegistro.map(() => ' '))),
+  ]
+  return new Document({ creator: 'Evaluación de riesgos', title: titulo, styles: { default: { document: { run: { font: 'Arial', size: 21 } } } }, sections: [{ children: hijos }] })
+}
+
+export async function wordEPI(ev, datos) {
+  const docx = await import('docx')
+  const { Paragraph, TextRun, Table, TableRow, TableCell, WidthType } = docx
+  const celda = (t, negrita = false) => new TableCell({ margins: { top: 80, bottom: 80, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: negrita, size: 18 })] })] })
+  const bloques = (_d, p) => {
+    const out = []
+    if (datos.epis.length) {
+      out.push(new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({ tableHeader: true, children: ['EPI', 'Norma', 'Qué hay que hacer', 'Riesgos para los que se necesita'].map((c) => celda(c, true)) }),
+          ...datos.epis.map((e) => new TableRow({ cantSplit: true, children: [e.nombre, e.norma, e.proporcionar ? 'La empresa lo proporciona' : 'Uso obligatorio', riesgosTxt(e.riesgos)].map((c) => celda(c)) })),
+        ],
+      }))
+    } else out.push(p('La evaluación de este puesto no exige equipos de protección individual.'))
+    if (datos.otros.length) {
+      out.push(p('Otras medidas que mencionan equipos de protección', { run: { bold: true }, spacing: { before: 200, after: 80 } }))
+      datos.otros.forEach((o) => out.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 40 }, children: [new TextRun(`${o.texto} (${riesgosTxt(o.riesgos)})`)] })))
+    }
+    return out
+  }
+  const doc = construirDocHoja(docx, ev, 'Hoja de equipos de protección individual (EPI) del puesto',
+    'EPI que se desprenden de las medidas de la evaluación de riesgos del puesto. Su elección, entrega y uso se rigen por el Real Decreto 773/1997.',
+    bloques, ['Fecha', 'EPI entregado', 'Nombre y apellidos', 'Firma del trabajador'], 'Registro de entrega de EPI')
+  return docx.Packer.toBlob(doc)
+}
+
+export async function wordFOR(ev, grupos) {
+  const docx = await import('docx')
+  const { Paragraph, TextRun } = docx
+  const bloques = (_d, p) => {
+    if (!grupos.length) return [p('La evaluación de este puesto no incluye medidas de formación.')]
+    const out = []
+    grupos.forEach((g) => {
+      out.push(new Paragraph({ spacing: { before: 240, after: 80 }, keepNext: true, border: { bottom: { style: 'single', size: 6, color: '999999', space: 2 } }, children: [new TextRun({ text: `${g.r} · ${g.riesgo}`, bold: true, size: 25 })] }))
+      g.temas.forEach((t) => out.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 40 }, children: [new TextRun(t)] })))
+    })
+    return out
+  }
+  const doc = construirDocHoja(docx, ev, 'Contenido formativo del puesto de trabajo',
+    'Formación en prevención de riesgos laborales que se desprende de las medidas de la evaluación del puesto, conforme al artículo 19 de la Ley 31/1995.',
+    bloques, ['Fecha', 'Tema', 'Duración', 'Nombre, apellidos y firma'], 'Registro de formación recibida')
+  return docx.Packer.toBlob(doc)
+}
+
 // ---------- Registro de agresiones ----------
 export async function excelAgresiones(nombreCentro, filas, nombresCentros = {}, todos = false) {
   const ExcelJS = (await import('exceljs')).default

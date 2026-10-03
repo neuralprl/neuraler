@@ -4,30 +4,18 @@ import Login from './Login'
 import Centros from './Centros'
 import Evaluaciones from './Evaluaciones'
 import Pac from './Pac'
+import PacLista from './PacLista'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
 import Agresiones from './Agresiones'
-import EpisPuestos from './EpisPuestos'
+import HojasEvaluacion from './HojasEvaluacion'
+import PapLista from './PapLista'
 import InformacionRiesgos from './InformacionRiesgos'
 import GestorDocumental from './GestorDocumental'
+import Actualizar from './Actualizar'
+import MenuPrincipal from './MenuPrincipal'
 import Pendiente from './Pendiente'
 import AppCentro from './AppCentro'
-import ImportarDatos from './ImportarDatos'
-
-const SECCIONES = [
-  { id: 'evaluaciones', texto: 'Evaluaciones' },
-  { id: 'pac', texto: 'PAC' },
-  { id: 'agresiones', texto: 'Agresiones' },
-  { id: 'centros', texto: 'Centros' },
-  { id: 'metodologia', texto: 'Metodología' },
-  { id: 'funciones', texto: 'Funciones de cada puesto' },
-  { id: 'importar', texto: 'Importar datos' },
-  { id: 'epis', texto: 'EPIs' },
-  { id: 'ir', texto: 'IR' },
-  { id: 'for', texto: 'FOR' },
-  { id: 'ere', texto: 'ERE' },
-  { id: 'gestor', texto: 'Gestor documental' },
-]
 
 export default function App() {
   const [sesion, setSesion] = useState(null)
@@ -69,45 +57,45 @@ export default function App() {
         </button>
       </header>
 
-      <nav style={{ display: 'flex', gap: 8, padding: '10px 16px', flexWrap: 'wrap' }}>
-        {SECCIONES.map((s) => (
-          <button
-            key={s.id}
-            className="secundario"
-            onClick={() => setSeccion(s.id)}
-            aria-current={seccion === s.id ? 'page' : undefined}
-            style={seccion === s.id ? { fontWeight: 700, textDecoration: 'underline' } : undefined}
-          >
-            {s.texto}
-          </button>
-        ))}
-      </nav>
+      <MenuPrincipal seccion={seccion} onElegir={setSeccion} />
 
       <main className="contenido">
-        {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} />}
-        {seccion === 'pac' && <Pac supabase={supabase} />}
-        {seccion === 'agresiones' && <Agresiones supabase={supabase} />}
         {seccion === 'centros' && <Centros supabase={supabase} />}
-        {seccion === 'metodologia' && <MetodologiaTab />}
-        {seccion === 'funciones' && <FuncionesPuestos />}
-        {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
-        {seccion === 'epis' && <EpisPuestos />}
-        {seccion === 'ir' && <InformacionRiesgos supabase={supabase} />}
-        {seccion === 'for' && (
-          <Pendiente
-            titulo="Formación (FOR)"
-            texto="Recogerá el contenido formativo de cada puesto: los temas que hay que impartir según sus actividades y riesgos, para dejar constancia de la formación recibida."
-            necesita={['La hoja de formación por puesto del programa de Excel (%FORM), o confirmar que el contenido salga de las medidas de formación de cada actividad.']}
-          />
-        )}
+        {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} onActualizar={() => setSeccion('actualizar')} />}
         {seccion === 'ere' && (
           <Pendiente
-            titulo="Embarazo y lactancia (ERE)"
+            titulo="Evaluación de Riesgos Embarazadas (ERE)"
             texto="Recogerá la evaluación de los riesgos para la trabajadora embarazada, que ha dado a luz recientemente o en periodo de lactancia, y el informe de adaptación del puesto."
             necesita={['Marcar en cada riesgo del catálogo si puede afectar al embarazo o a la lactancia.', 'El modelo de informe que quieres emitir.']}
           />
         )}
-        {seccion === 'gestor' && <GestorDocumental supabase={supabase} />}
+        {seccion === 'pap' && <PapLista supabase={supabase} />}
+        {seccion === 'pac' && <PacLista supabase={supabase} />}
+        {seccion === 'agresiones' && <Agresiones supabase={supabase} />}
+        {seccion === 'actualizar' && <Actualizar supabase={supabase} onIr={setSeccion} />}
+        {seccion === 'epis' && <HojasEvaluacion supabase={supabase} modo="epis" />}
+        {seccion === 'form' && <HojasEvaluacion supabase={supabase} modo="formacion" />}
+        {seccion === 'ir' && <InformacionRiesgos supabase={supabase} />}
+        {seccion === 'funciones' && <FuncionesPuestos key="puestos" vistaInicial="puestos" />}
+        {seccion === 'metodologia' && <MetodologiaTab />}
+        {seccion === 'procedimientos' && <GestorDocumental supabase={supabase} ambito="general" onIrOtra={() => setSeccion('docs_centro')} />}
+        {seccion === 'docs_centro' && <GestorDocumental supabase={supabase} ambito="centro" onIrOtra={() => setSeccion('procedimientos')} />}
+        {seccion === 'cambios' && (
+          <Pendiente
+            titulo="Control de Cambios"
+            texto="Registrará la trazabilidad del sistema: qué se ha cambiado, cuándo y quién lo ha hecho, en las evaluaciones, las medidas, el catálogo de riesgos y la metodología, con su versión."
+            necesita={['Decidir qué cambios se registran y cuánto tiempo se conservan.']}
+          />
+        )}
+        {seccion === 'equipos' && (
+          <Pendiente
+            titulo="Evaluación de equipos de trabajo"
+            texto="Recogerá la evaluación de los equipos de trabajo de cada centro (Real Decreto 1215/1997). Las deficiencias que se detecten pasarán a la Planificación Actividad Preventiva (PAP)."
+            necesita={['La lista de equipos de trabajo y el modelo de comprobación que quieres usar.']}
+          />
+        )}
+        {seccion === 'lugar' && <Pac supabase={supabase} />}
+        {seccion === 'actividades' && <FuncionesPuestos key="actividades" vistaInicial="actividades" />}
       </main>
     </div>
   )
