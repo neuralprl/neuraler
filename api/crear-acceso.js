@@ -1,6 +1,8 @@
 // Función de servidor (Vercel): crea el usuario de acceso de un centro y le asigna una evaluación.
 // Necesita la variable de entorno SUPABASE_SERVICE_ROLE_KEY (secreta, SIN prefijo VITE_).
 // Solo la pueden usar los usuarios normales (no los de centro).
+// Recibe evaluacion_centro_id (acceso a todos los puestos de la evaluación del centro) o, como antes,
+// evaluacion_id (acceso a la evaluación de un solo puesto).
 import { createClient } from '@supabase/supabase-js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -30,14 +32,29 @@ export default async function handler(req, res) {
   const body = typeof req.body === 'string' ? safeJson(req.body) : req.body || {}
   const email = String(body.email ?? '').trim().toLowerCase()
   const password = String(body.password ?? '')
+  const evCentroId = String(body.evaluacion_centro_id ?? '')
   const evaluacionId = String(body.evaluacion_id ?? '')
   if (!EMAIL.test(email)) return responder(res, 400, { error: 'El usuario debe tener formato de correo (por ejemplo, centro@ejemplo.com).' })
   if (password.length < 8) return responder(res, 400, { error: 'La contraseña debe tener al menos 8 caracteres.' })
-  if (!UUID.test(evaluacionId)) return responder(res, 400, { error: 'Evaluación no válida' })
 
-  const { data: ev, error: errEv } = await admin.from('evaluaciones').select('id').eq('id', evaluacionId).maybeSingle()
-  if (errEv) return responder(res, 500, { error: errEv.message })
-  if (!ev) return responder(res, 404, { error: 'La evaluación no existe' })
+  // Evaluaciones de puesto a las que se da acceso
+  let ids = []
+  if (evCentroId) {
+    if (!UUID.test(evCentroId)) return responder(res, 400, { error: 'Evaluación del centro no válida' })
+    const { data: evc, error: e1 } = await admin.from('evaluaciones_centro').select('id').eq('id', evCentroId).maybeSingle()
+    if (e1) return responder(res, 500, { error: e1.message })
+    if (!evc) return responder(res, 404, { error: 'La evaluación del centro no existe' })
+    const { data: evs, error: e2 } = await admin.from('evaluaciones').select('id').eq('evaluacion_centro_id', evCentroId)
+    if (e2) return responder(res, 500, { error: e2.message })
+    ids = evs.map((e) => e.id)
+    if (!ids.length) return responder(res, 400, { error: 'La evaluación del centro no tiene puestos.' })
+  } else {
+    if (!UUID.test(evaluacionId)) return responder(res, 400, { error: 'Evaluación no válida' })
+    const { data: ev, error: errEv } = await admin.from('evaluaciones').select('id').eq('id', evaluacionId).maybeSingle()
+    if (errEv) return responder(res, 500, { error: errEv.message })
+    if (!ev) return responder(res, 404, { error: 'La evaluación no existe' })
+    ids = [ev.id]
+  }
 
   // 3) Crear el usuario (o reutilizar uno de centro que ya exista)
   let userId = null
@@ -59,12 +76,12 @@ export default async function handler(req, res) {
     return responder(res, 400, { error: errCrear.message })
   }
 
-  // 4) Asignar la evaluación
-  const { error: errAcceso } = await admin.from('accesos_evaluacion')
-    .upsert({ user_id: userId, evaluacion_id: evaluacionId, email }, { onConflict: 'user_id,evaluacion_id' })
+  // 4) Asignar las evaluaciones
+  const filas = ids.map((evaluacion_id) => ({ user_id: userId, evaluacion_id, email }))
+  const { error: errAcceso } = await admin.from('accesos_evaluacion').upsert(filas, { onConflict: 'user_id,evaluacion_id' })
   if (errAcceso) return responder(res, 500, { error: errAcceso.message })
 
-  return responder(res, 200, { ok: true, email, reutilizado })
+  return responder(res, 200, { ok: true, email, reutilizado, evaluaciones: ids.length })
 }
 
 function safeJson(texto) {
