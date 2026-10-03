@@ -99,7 +99,7 @@ export function NuevaEvaluacionCentro({ supabase, enCurso, onContinuar, onVolver
 // Panel de la evaluación del centro: check, puestos y cierre.
 export function ResumenEvaluacionCentro({
   supabase, evc, evals, faltan, mensaje, error, trabajando,
-  onCheck, onEvaluar, onNoAplica, onPendiente, onAnadirFaltan, onCerrar, onReabrir, onVolver, onPap,
+  onCheck, onEvaluar, onNoAplica, onPendiente, onAnadirFaltan, onCerrar, onReabrir, onVolver, onPap, onERE,
 }) {
   const [motivo, setMotivo] = useState({ id: null, texto: '' })
   const prog = progresoCentro(evals)
@@ -174,7 +174,12 @@ export function ResumenEvaluacionCentro({
                     </>
                   )}
                   {ev.estado === 'borrador' && <button onClick={() => onEvaluar(ev)} disabled={trabajando}>Continuar</button>}
-                  {ev.estado === 'cerrada' && <button className="secundario" onClick={() => onEvaluar(ev)} disabled={trabajando}>Ver</button>}
+                  {ev.estado === 'cerrada' && (
+                    <>
+                      <button className="secundario" onClick={() => onEvaluar(ev)} disabled={trabajando}>Ver</button>{' '}
+                      <button className="secundario" onClick={() => onERE(ev)} disabled={trabajando} title="Evaluación de riesgos para embarazo, parto reciente y lactancia">Descargar ERE</button>
+                    </>
+                  )}
                   {ev.estado === 'no_aplica' && <button className="secundario" onClick={() => onPendiente(ev)} disabled={trabajando || cerrada}>Volver a pendiente</button>}
                 </td>
               </tr>

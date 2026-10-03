@@ -5,6 +5,7 @@ import { fechaES, textoEficacia, textoRealizacion } from './planLogic.js'
 import { ORDEN_PRIORIDAD_PAC, PRIORIDADES_PAC, nombreConsecuencia, nombreDeficiencia } from './pacLogic.js'
 import { AGRESORES, CONSECUENCIAS, ESTADOS, TIPOS } from './agresionesLogic.js'
 import { puestosConMenorPrioridad } from './papCentroLogic.js'
+import { ACCIONES, ERE_VERSION, MARCO_ERE, TABLAS_ERE } from './ereContenido.js'
 import { COLUMNAS as COLUMNAS_AGRESIONES, OBLIGATORIAS as OBLIGATORIAS_AGRESIONES } from './agresionesImport.js'
 
 export { fechaES }
@@ -722,6 +723,129 @@ export async function plantillaAgresiones(centros, puestos = []) {
   wb.views = [{ activeTab: 0 }]
   const buf = await wb.xlsx.writeBuffer()
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+// ---------- Evaluación de riesgos para embarazo, parto reciente y lactancia (ERE) ----------
+// ev: { fecha, centro, puesto }; ere: resultado de generarERE.
+const TITULO_ERE = 'Evaluación de riesgos laborales de trabajadoras en situación de embarazo, parto reciente o lactancia'
+const INTRO_ERE = 'Evaluación derivada de los riesgos de la evaluación del puesto, conforme al artículo 26 de la Ley 31/1995 y a los anexos VII y VIII del Real Decreto 39/1997. Si se detecta un riesgo, la empresa adapta las condiciones o el tiempo de trabajo (incluido no realizar trabajo nocturno o a turnos); si no es posible, la trabajadora pasa a un puesto o función compatible y, en último término, se tramita la suspensión del contrato por riesgo durante el embarazo o la lactancia natural. Las semanas de inicio del riesgo son orientativas: las determina la entidad colaboradora o el criterio médico según la guía de la SEGO, el INSS y la AMAT, y cada caso se valora de forma individual.'
+const tablasDe = (e) => (Array.isArray(e.tabla) ? e.tabla : e.tabla ? [e.tabla] : []).map((k) => TABLAS_ERE[k]).filter(Boolean)
+const origenTxt = (e) => {
+  const u = [...new Set(e.origen.map((o) => `${o.riesgo_id} · ${o.condicion}`))]
+  return u.slice(0, 3).join('; ') + (u.length > 3 ? ` y ${u.length - 3} más` : '')
+}
+const nivelTxt = (e) => (e.nivel
+  ? `Nivel ${e.nivel}${e.motivosNivel?.length ? ` (${e.motivosNivel.join('; ')})` : ' (sin contención como actividad principal)'}. Registro de agresiones del centro: ${e.agresiones12m} a este puesto en los últimos 12 meses.`
+  : '')
+
+export function htmlERE(ev, ere) {
+  const x = (b) => (b ? 'X' : '')
+  const filas = ere.entradas.map((e) => `<tr class="bloque">
+  <td><b>${esc(e.r)}</b> · ${esc(e.riesgo)}</td>
+  <td>${esc(e.condicion)}<div class="nota">Deriva de: ${esc(origenTxt(e))}</div></td>
+  <td>${esc(MARCO_ERE)}</td>
+  <td>${e.medidas.map((m) => `<p style="margin:0 0 4px">${esc(m)}</p>`).join('')}${e.nivel ? `<p class="etq">${esc(nivelTxt(e))}</p>` : ''}
+    <div class="nota" style="color:${ACCIONES[e.accion].color};font-weight:bold">${esc(ACCIONES[e.accion].nombre)}${e.semana ? ` · desde la semana ${e.semana}` : ''}</div></td>
+  <td style="text-align:center">${x(e.EM)}</td><td style="text-align:center">${x(e.PR)}</td><td style="text-align:center">${x(e.LA)}</td>
+</tr>`).join('')
+  const tablas = []
+  const vistas = new Set()
+  ere.entradas.forEach((e) => tablasDe(e).forEach((t) => {
+    if (vistas.has(t.titulo)) return
+    vistas.add(t.titulo)
+    tablas.push(`<h2>${esc(t.titulo)}</h2><table><thead><tr>${t.columnas.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${t.filas.map((f) => `<tr>${f.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`)
+  }))
+  const cuerpo = `<h1>${esc(TITULO_ERE)}</h1>
+<div class="meta">
+  <p><b>Centro:</b> ${esc(ev.centro.codigo)} · ${esc(ev.centro.nombre)}</p>
+  <p><b>Puesto de trabajo:</b> ${esc(ev.puesto.nombre)}</p>
+  <p><b>Fecha de la evaluación del puesto:</b> ${esc(fechaES(ev.fecha))} · versión ERE ${esc(ERE_VERSION)}</p>
+  <p><b>Tareas afectadas en situación de embarazo, parto reciente o lactancia:</b> ${esc(ere.tareas.join(', ') || 'ninguna')}</p>
+</div>
+<p class="nota">${esc(INTRO_ERE)}</p>
+<h2>Conclusión</h2><p>${esc(ere.conclusion)}</p>
+${ere.entradas.length ? `<h2>Condiciones y medidas</h2>
+<table><thead><tr><th style="width:13%">Riesgo</th><th style="width:24%">Condición detectada</th><th style="width:9%">Marco legal</th><th>Medida</th><th>EM</th><th>PR</th><th>LA</th></tr></thead><tbody>${filas}</tbody></table>
+<p class="nota">EM: embarazada · PR: parto reciente · LA: lactancia</p>` : ''}
+${tablas.join('\n')}
+<table class="firma"><tr><td>Fecha de comunicación a la trabajadora:</td><td>Firma de la trabajadora (recibí):</td></tr><tr><td>Técnico de prevención:</td><td>Firma:</td></tr></table>`
+  return documentoHTML(nombreArchivo('ERE', ev, 'pdf').replace(/\.pdf$/, ''), cuerpo, true)
+}
+
+export async function wordERE(ev, ere) {
+  const docx = await import('docx')
+  const { Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, PageOrientation, TableLayoutType } = docx
+  const ANCHO = 13900                                         // ancho útil de A4 apaisado, en twips
+  const p = (texto, o = {}) => new Paragraph({ spacing: { after: 80 }, ...o, children: [new TextRun({ text: texto, ...(o.run ?? {}) })] })
+  const celda = (contenido, { negrita = false, ancho, centro = false, fondo } = {}) => new TableCell({
+    margins: { top: 60, bottom: 60, left: 80, right: 80 },
+    ...(ancho ? { width: { size: ancho, type: WidthType.DXA } } : {}),
+    ...(fondo ? { shading: { fill: fondo } } : {}),
+    children: (Array.isArray(contenido) ? contenido : [contenido]).map((t) => (typeof t === 'string'
+      ? new Paragraph({ alignment: centro ? 'center' : undefined, children: [new TextRun({ text: t, bold: negrita, size: 17 })] })
+      : t)),
+  })
+  const hijos = [
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: TITULO_ERE, bold: true, size: 30 })] }),
+    p(`Centro: ${ev.centro.codigo} · ${ev.centro.nombre}`), p(`Puesto de trabajo: ${ev.puesto.nombre}`),
+    p(`Fecha de la evaluación del puesto: ${fechaES(ev.fecha)} · versión ERE ${ERE_VERSION}`),
+    p(`Tareas afectadas en situación de embarazo, parto reciente o lactancia: ${ere.tareas.join(', ') || 'ninguna'}`, { run: { bold: true } }),
+    p(INTRO_ERE, { run: { italics: true, size: 17 }, spacing: { before: 120, after: 160 } }),
+    p('Conclusión', { run: { bold: true, size: 24 }, spacing: { before: 160, after: 60 } }),
+    p(ere.conclusion),
+  ]
+  if (ere.entradas.length) {
+    hijos.push(p('Condiciones y medidas', { run: { bold: true, size: 24 }, spacing: { before: 200, after: 80 } }))
+    const W = [1900, 3200, 1200, 6160, 480, 480, 480]
+    hijos.push(new Table({
+      width: { size: ANCHO, type: WidthType.DXA }, columnWidths: W, layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({ tableHeader: true, children: ['Riesgo', 'Condición detectada', 'Marco legal', 'Medida', 'EM', 'PR', 'LA'].map((t, i) => celda(t, { negrita: true, ancho: W[i], fondo: 'E8E8E8', centro: i > 3 })) }),
+        ...ere.entradas.map((e) => new TableRow({
+          cantSplit: true,
+          children: [
+            celda(`${e.r} · ${e.riesgo}`, { ancho: W[0] }),
+            celda([e.condicion, new Paragraph({ children: [new TextRun({ text: `Deriva de: ${origenTxt(e)}`, italics: true, size: 14, color: '555555' })] })], { ancho: W[1] }),
+            celda(MARCO_ERE, { ancho: W[2] }),
+            celda([
+              ...e.medidas,
+              ...(e.nivel ? [new Paragraph({ children: [new TextRun({ text: nivelTxt(e), bold: true, size: 17 })] })] : []),
+              new Paragraph({ children: [new TextRun({ text: `${ACCIONES[e.accion].nombre}${e.semana ? ` · desde la semana ${e.semana}` : ''}`, bold: true, size: 16, color: ACCIONES[e.accion].color.slice(1) })] }),
+            ], { ancho: W[3] }),
+            celda(e.EM ? 'X' : '', { centro: true, ancho: W[4] }), celda(e.PR ? 'X' : '', { centro: true, ancho: W[5] }), celda(e.LA ? 'X' : '', { centro: true, ancho: W[6] }),
+          ],
+        })),
+      ],
+    }))
+    hijos.push(p('EM: embarazada · PR: parto reciente · LA: lactancia', { run: { size: 16, italics: true } }))
+  }
+  const vistas = new Set()
+  ere.entradas.forEach((e) => tablasDe(e).forEach((t) => {
+    if (vistas.has(t.titulo)) return
+    vistas.add(t.titulo)
+    hijos.push(p(t.titulo, { run: { bold: true, size: 21 }, spacing: { before: 220, after: 60 }, keepNext: true }))
+    const w = Math.floor(ANCHO / t.columnas.length)
+    const ws = t.columnas.map(() => w)
+    hijos.push(new Table({
+      width: { size: ANCHO, type: WidthType.DXA }, columnWidths: ws, layout: TableLayoutType.FIXED,
+      rows: [new TableRow({ tableHeader: true, children: t.columnas.map((c) => celda(c, { negrita: true, fondo: 'E8E8E8', ancho: w })) }),
+        ...t.filas.map((f) => new TableRow({ cantSplit: true, children: f.map((v) => celda(String(v), { ancho: w })) }))],
+    }))
+  }))
+  hijos.push(new Paragraph({ spacing: { before: 360 }, children: [] }))
+  hijos.push(new Table({
+    width: { size: ANCHO, type: WidthType.DXA }, columnWidths: [ANCHO / 2, ANCHO / 2], layout: TableLayoutType.FIXED,
+    rows: [
+      new TableRow({ cantSplit: true, children: [celda('Fecha de comunicación a la trabajadora:', { ancho: ANCHO / 2 }), celda('Firma de la trabajadora (recibí):', { ancho: ANCHO / 2 })] }),
+      new TableRow({ cantSplit: true, children: [celda('Técnico de prevención:', { ancho: ANCHO / 2 }), celda('Firma:', { ancho: ANCHO / 2 })] }),
+    ],
+  }))
+  const doc = new Document({
+    creator: 'Evaluación de riesgos', title: TITULO_ERE,
+    styles: { default: { document: { run: { font: 'Arial', size: 19 } } } },
+    sections: [{ properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children: hijos }],
+  })
+  return docx.Packer.toBlob(doc)
 }
 
 // ---------- Word (IR) ----------

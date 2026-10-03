@@ -5,7 +5,9 @@
 // cada evaluación guarda la versión vigente cuando se hizo.
 // =====================================================================
 
-export const METODOLOGIA_VERSION = "1.3";
+import { CONDICIONES_ERE, ACCIONES as ACCIONES_ERE, TABLAS_ERE } from "./ereContenido.js";
+
+export const METODOLOGIA_VERSION = "1.4";
 export const METODOLOGIA_FECHA = "2026-10-03";
 
 // ---------- Escalas (fuente única: también las usa el cálculo) ----------
@@ -165,6 +167,16 @@ export const SECCIONES = [
         texto:
           "Se aplica a todos los puestos de trabajo, equipos, lugares e instalaciones del centro, y a todas las personas que trabajan en él, incluidas las contratadas a través de empresas de trabajo temporal.",
       },
+      {
+        tipo: "p",
+        texto:
+          "La evaluación recoge los riesgos detectados en la toma de datos (visitas, entrevistas con las personas trabajadoras y los mandos, y documentación del centro) y los estudios específicos que se realicen. No recoge los riesgos de situaciones que no se hayan comunicado y no puedan observarse, ni los que ya se han eliminado aplicando los principios de la acción preventiva.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Se aplica la perspectiva de género en todas las fases: al identificar los riesgos y las condiciones de trabajo se tiene en cuenta cómo afectan de forma distinta a mujeres y hombres, en especial durante el embarazo y la lactancia.",
+      },
     ],
   },
   {
@@ -178,6 +190,23 @@ export const SECCIONES = [
           "Real Decreto 39/1997, Reglamento de los Servicios de Prevención: artículos 3 a 9 (contenido, revisión, documentación y planificación de la evaluación).",
           "Real Decreto 298/2009, sobre la protección de la trabajadora embarazada, que haya dado a luz o en periodo de lactancia.",
           "Normativa específica aplicable según los riesgos detectados (lugares de trabajo, equipos, manipulación de cargas, pantallas de visualización, agentes biológicos y químicos, entre otros).",
+          "Real Decreto 664/1997 (agentes biológicos), Real Decreto 665/1997 (agentes cancerígenos) y Reglamento (CE) 1272/2008 sobre clasificación y etiquetado de sustancias (indicaciones de peligro H).",
+        ],
+      },
+      {
+        tipo: "p",
+        texto:
+          "Documentos técnicos de referencia para el método:",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Documento técnico del INSST «Evaluación de Riesgos Laborales».",
+          "Documento de integración para la implantación y desarrollo de la prevención en las empresas, impulsado por la Inspección de Trabajo y Seguridad Social.",
+          "Agentes químicos, inhalación: evaluación cualitativa simplificada con el modelo COSHH Essentials (nota técnica de prevención del INSST).",
+          "Carga física: norma UNE-EN 1005-4 e informe técnico ISO/TR 12295, que aplica las normas ISO 11228-1, 11228-2 y 11228-3 (manipulación manual) e ISO 11226 (posturas estáticas).",
+          "Factores psicosociales: lista de identificación de la guía «Risk assessment essentials» de la Agencia Europea para la Seguridad y la Salud en el Trabajo (2007).",
+          "Embarazo y lactancia: guía de valoración del riesgo laboral durante el embarazo y la lactancia de la Sociedad Española de Ginecología y Obstetricia (SEGO), el Instituto Nacional de la Seguridad Social (INSS) y la Asociación de Mutuas de Accidentes de Trabajo (AMAT).",
         ],
       },
       {
@@ -223,6 +252,20 @@ export const SECCIONES = [
         tipo: "tabla",
         fuente: "EQUIVALENCIA",
         columnas: ["Código", "Riesgo", "Forma oficial", "Encaje"],
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Qué comprende cada riesgo",
+      },
+      {
+        tipo: "p",
+        texto:
+          "La numeración R01 a R39 coincide con la lista de riesgos de la metodología general de evaluación de referencia, de modo que los informes de otras evaluaciones pueden compararse riesgo a riesgo.",
+      },
+      {
+        tipo: "tabla",
+        fuente: "DEFINICIONES",
+        columnas: ["Código", "Riesgo", "Qué comprende y factores de riesgo habituales"],
       },
       {
         tipo: "p",
@@ -390,6 +433,29 @@ export const SECCIONES = [
       {
         tipo: "matriz",
       },
+      {
+        tipo: "subtitulo",
+        texto: "Métodos de apoyo",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Agentes químicos por inhalación: se estima el riesgo potencial con el modelo COSHH Essentials a partir de la peligrosidad (indicaciones H), la tendencia a pasar al ambiente (volatilidad de los líquidos según su punto de ebullición y la temperatura de trabajo; pulverulencia de los sólidos), la cantidad usada en cada operación y el tiempo de exposición. Después se traslada a probabilidad y consecuencias teniendo en cuenta las medidas existentes.",
+          "Carga física: identificación de los factores de riesgo (posturas, manipulación de cargas, movilización de personas, movimientos repetitivos y aplicación de fuerzas) y evaluación rápida según el ISO/TR 12295, que indica si hace falta una evaluación específica.",
+          "Factores psicosociales (estrés y violencia): datos objetivos del centro, como absentismo, denuncias o registro de agresiones, y la lista de identificación de la Agencia Europea; si el resultado lo aconseja, se realiza una evaluación psicosocial con un método reconocido.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "dn",
+    titulo: "Disposición normativa (D.N.)",
+    bloques: [
+      {
+        tipo: "p",
+        texto:
+          "Las condiciones detectadas que no corresponden a un riesgo concreto, pero que la normativa exige de forma explícita, se registran como disposición normativa y llevan el código «D.N.» en lugar del nivel de riesgo. Por ejemplo, aspectos de integración de la prevención, la dotación del botiquín o la documentación obligatoria.",
+      },
     ],
   },
   {
@@ -410,6 +476,36 @@ export const SECCIONES = [
         tipo: "p",
         texto:
           "Cuando dos medidas tienen el mismo nivel, se aplica antes la que corresponde a consecuencias más graves. Si también coinciden en eso, se tiene en cuenta el número de personas expuestas, el coste y el tiempo necesario.",
+      },
+    ],
+  },
+  {
+    id: "medidas",
+    titulo: "Medidas preventivas y correctivas",
+    bloques: [
+      {
+        tipo: "p",
+        texto:
+          "Medida preventiva: la que reduce un riesgo que no se ha podido eliminar y que la empresa mantiene de forma permanente, sin fecha de fin; por ejemplo, el uso de equipos de protección individual o los controles periódicos.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Medida correctiva: la que subsana un incumplimiento o una no conformidad para eliminar el riesgo o reducirlo. Se planifica en el tiempo con responsable, plazo y coste, y forma la base de la planificación preventiva (PAP).",
+      },
+      {
+        tipo: "p",
+        texto: "Para facilitar la planificación, cada medida puede llevar uno o varios tipos:",
+      },
+      {
+        tipo: "tabla",
+        fuente: "TIPOS_MEDIDA",
+        columnas: ["Tipo", "Significado"],
+      },
+      {
+        tipo: "p",
+        texto:
+          "Cada medida indica el marco legal que la justifica. En la planificación preventiva, las medidas iguales o parecidas de varios puestos del centro se unen en una sola acción con la prioridad más alta, del lado de la seguridad.",
       },
     ],
   },
@@ -445,18 +541,151 @@ export const SECCIONES = [
     ],
   },
   {
+    id: "estructura",
+    titulo: "Estructura de la evaluación",
+    bloques: [
+      {
+        tipo: "p",
+        texto: "La evaluación de cada centro se organiza en tres partes:",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Integración de la prevención: implantación del plan de prevención y acciones transversales que afectan a toda la organización por igual (formación, información, vigilancia de la salud, emergencias y coordinación de actividades empresariales).",
+          "Entidades evaluadas y sus relaciones.",
+          "Plan formativo.",
+        ],
+      },
+      {
+        tipo: "tabla",
+        fuente: "ENTIDADES",
+        columnas: ["Entidad", "Qué es", "Con qué se relaciona"],
+      },
+      {
+        tipo: "p",
+        texto:
+          "Los productos químicos no son una entidad propia: se asocian al puesto o a la actividad en la que se usan.",
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Plan formativo",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Se construye con las medidas de formación de la evaluación de cada puesto y puede incluir la formación del puesto (art. 19 de la Ley 31/1995), la exigida por el convenio colectivo, la complementaria en riesgos específicos y otra formación prevista en la ley, como emergencias, primeros auxilios o nivel básico.",
+      },
+    ],
+  },
+  {
     id: "maternidad",
     titulo: "Embarazo, parto reciente y lactancia (ERE)",
     bloques: [
       {
         tipo: "p",
         texto:
-          "Cada riesgo del catálogo indica si puede afectar al embarazo, a la lactancia o a ambos, según los agentes y condiciones de trabajo recogidos en la normativa de protección de la maternidad. Con esa información se genera para cada puesto la evaluación de riesgos para embarazo y lactancia (ERE).",
+          "El artículo 26 de la Ley 31/1995 exige que la evaluación determine la naturaleza, el grado y la duración de la exposición de las trabajadoras embarazadas, que han dado a luz o en periodo de lactancia a agentes, procedimientos o condiciones que puedan afectar a su salud, a la del feto o a la del lactante. Cada caso se valora además de forma individual.",
+      },
+      {
+        tipo: "pasos",
+        items: [
+          { titulo: "Adaptar", texto: "Si hay riesgo, la empresa adapta las condiciones o el tiempo de trabajo, incluido no realizar trabajo nocturno o a turnos." },
+          { titulo: "Cambiar de puesto", texto: "Si la adaptación no es posible o no basta (con certificado de los servicios médicos del INSS o de la mutua), la trabajadora pasa a un puesto o función compatible, aunque no sea de su grupo, conservando su retribución." },
+          { titulo: "Suspender el contrato", texto: "Si el cambio de puesto no es posible, se tramita la suspensión del contrato por riesgo durante el embarazo o la lactancia natural (art. 45.1.d del Estatuto de los Trabajadores)." },
+        ],
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Cómo se genera en la aplicación",
       },
       {
         tipo: "p",
         texto:
-          "La ERE indica, para cada puesto, si está exento de riesgo, qué riesgos deben limitarse o adaptarse y cuáles impiden ocupar el puesto durante el embarazo o la lactancia. En ese último caso se estudia el cambio de puesto y, si no es posible, la suspensión del contrato por riesgo durante el embarazo o la lactancia.",
+          "La ERE se deriva de los riesgos de la evaluación del puesto, sin preguntas adicionales. En cuanto un puesto se marca como evaluado, la aplicación genera su ERE y la ofrece para descargar en Word y PDF, al técnico y al usuario del centro. Si se reabre y cambia la evaluación del puesto, la ERE se rehace sola.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Cada condición de la ERE se activa cuando el puesto tiene el riesgo del que depende. Indica a quién afecta (embarazo, parto reciente, lactancia), la medida, el marco legal y qué supone para el puesto:",
+      },
+      {
+        tipo: "tabla",
+        fuente: "ERE_ACCIONES",
+        columnas: ["Resultado", "Qué supone"],
+      },
+      {
+        tipo: "tabla",
+        fuente: "ERE_DERIVACION",
+        columnas: ["Riesgo del puesto", "Condición para la embarazada", "Resultado", "A quién afecta"],
+      },
+      {
+        tipo: "p",
+        texto:
+          "Si el puesto no activa ninguna condición con riesgo, la ERE lo declara exento de riesgo para el embarazo y la lactancia con las condiciones evaluadas, lo que sirve para la relación de puestos exentos que la empresa determina previa consulta con los representantes de los trabajadores.",
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Agentes y condiciones prohibidos (anexo VIII del Real Decreto 39/1997)",
+      },
+      {
+        tipo: "tabla",
+        fuente: "ERE_PROHIBIDOS",
+        columnas: ["Tipo", "Embarazo", "Lactancia"],
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Agentes y condiciones que pueden influir negativamente (anexo VII)",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Agentes físicos, cuando puedan causar lesiones fetales o desprendimiento de placenta: choques, vibraciones o movimientos; manipulación manual de cargas pesadas con riesgo dorsolumbar; ruido; radiaciones no ionizantes; frío y calor extremos; movimientos, posturas, desplazamientos, fatiga mental y física.",
+          "Agentes biológicos de los grupos 2, 3 y 4, si ellos o su tratamiento ponen en peligro a la embarazada o al feto.",
+          "Agentes químicos: sustancias H340, H341, H350, H350i, H351, H361d, H361f y H361fd; agentes de los anexos I y III del Real Decreto 665/1997; mercurio y derivados; medicamentos antimitóticos; monóxido de carbono; agentes de reconocida penetración cutánea.",
+          "Procedimientos industriales del anexo I del Real Decreto 665/1997.",
+        ],
+      },
+      {
+        tipo: "subtitulo",
+        texto: "Criterios de valoración por riesgo",
+      },
+      {
+        tipo: "lista",
+        items: [
+          "Radiaciones ionizantes: dosis máxima de 1 mSv al feto durante el resto del embarazo (2 mSv en dosímetro de abdomen). Se revisa el historial dosimétrico y se usa dosímetro de abdomen desde la comunicación del embarazo. No participa en exposiciones especialmente autorizadas ni en emergencias de la instalación.",
+          "Radiaciones no ionizantes: con niveles habituales no hay riesgo; en el ámbito sanitario, 2 metros de distancia a los equipos de diatermia; en fuentes industriales, retirada si se superan los valores del anexo II del Real Decreto 1066/2001.",
+          "Vibraciones: se aparta de la tarea desde la solicitud si A(8) supera 2,5 m/s² en mano-brazo o 0,25 m/s² en cuerpo entero.",
+          "Temperaturas: especial atención por encima de 25 ºC o por debajo de 10 ºC; ropa de abrigo adaptada a la gestación.",
+          "Ruido: no más de 80 dB(A) diarios ni picos de 135 dB(C); si se superan, retirada desde la semana 20, porque los protectores no protegen al feto.",
+          "Manipulación de cargas, flexiones del tronco, escaleras de mano, bipedestación y sedestación: se limitan a partir de la semana que indican las tablas siguientes según la intensidad y la duración de la exposición, en embarazo único o múltiple.",
+          "Agentes químicos: se identifican con las fichas de datos de seguridad. Los del anexo VIII no admiten exposición; los del anexo VII exigen una evaluación específica. Gases anestésicos H360D o H360Df sin garantía de no exposición: prestación por riesgo; H361d o H361df: evaluación específica y retirada si no hay valor límite que proteja a la embarazada. Citostáticos: separación del puesto con exposición alta, adaptación con exposición media o baja.",
+          "Agentes biológicos: solo se considera el efecto infeccioso. Rubeola, sarampión, varicela, parotiditis y parvovirus: serología y, si es negativa o desconocida y hay riesgo de exposición, apartar del puesto. Citomegalovirus: higiene rigurosa y reubicación en contacto habitual con menores de 3 años. Virus por sangre (VHB, VHC, VIH), Coxsackie y bacterias de transmisión oral: no se justifica la exclusión. Toxoplasma y rubeola figuran en el anexo VIII salvo inmunidad.",
+          "Factores psicosociales: el estrés por sí mismo no se considera riesgo para el embarazo. Se valoran la ordenación del tiempo de trabajo (turnos y nocturnidad), el trabajo en aislamiento (riesgo desde la solicitud) y las agresiones en el abdomen.",
+          "Agresiones: nivel I cuando la contención forma parte de la actividad principal (como unidades psiquiátricas de agudos o menores en centros tutelados): retirada de esas funciones desde la semana 12. Nivel II cuando no hay contención como actividad principal pero sí posibilidad de agresión: se valora con el registro de agresiones y, si hay riesgo de agresión en el abdomen, pasa a nivel I.",
+        ],
+      },
+      {
+        tipo: "p",
+        texto:
+          "La aplicación propone el nivel I de agresiones si el centro tiene sala de contención, atiende a adultos con patología psiquiátrica en hospitalización o a menores en régimen residencial u hospitalario, o si el registro de agresiones recoge 3 o más agresiones físicas a ese puesto en los últimos 12 meses. En los demás casos propone el nivel II e indica el número de agresiones registradas.",
+      },
+      { tipo: "subtitulo", texto: TABLAS_ERE.cargas.titulo },
+      { tipo: "tabla", fuente: "ERE_CARGAS", columnas: TABLAS_ERE.cargas.columnas },
+      { tipo: "subtitulo", texto: TABLAS_ERE.pesos.titulo },
+      { tipo: "tabla", fuente: "ERE_PESOS", columnas: TABLAS_ERE.pesos.columnas },
+      { tipo: "subtitulo", texto: TABLAS_ERE.flexion.titulo },
+      { tipo: "tabla", fuente: "ERE_FLEXION", columnas: TABLAS_ERE.flexion.columnas },
+      { tipo: "subtitulo", texto: TABLAS_ERE.escaleras.titulo },
+      { tipo: "p", texto: "Las escaleras fijas de los edificios no están contraindicadas, porque la trabajadora adapta la velocidad de subida. Se valoran las escaleras de mano y las escalas en las que queda a más de 1 metro del suelo." },
+      { tipo: "tabla", fuente: "ERE_ESCALERAS", columnas: TABLAS_ERE.escaleras.columnas },
+      { tipo: "subtitulo", texto: TABLAS_ERE.bipedestacion.titulo },
+      { tipo: "tabla", fuente: "ERE_BIPEDESTACION", columnas: TABLAS_ERE.bipedestacion.columnas },
+      { tipo: "subtitulo", texto: TABLAS_ERE.sedestacion.titulo },
+      { tipo: "tabla", fuente: "ERE_SEDESTACION", columnas: TABLAS_ERE.sedestacion.columnas },
+      {
+        tipo: "p",
+        texto:
+          "Las semanas de las tablas son orientativas: las determina la entidad colaboradora o el criterio médico según la guía de la SEGO, el INSS y la AMAT.",
       },
     ],
   },
@@ -522,6 +751,7 @@ export const SECCIONES = [
           "Se incorpore una persona especialmente sensible o una trabajadora comunique su embarazo o lactancia.",
           "Se produzcan daños a la salud o se detecte que las medidas preventivas no son eficaces.",
           "Lo indiquen los controles periódicos o lo acuerden la empresa y los representantes de los trabajadores.",
+          "Lo establezca una disposición específica (art. 4 del Real Decreto 39/1997).",
         ],
       },
     ],
@@ -629,6 +859,69 @@ export const EQUIVALENCIA_RIESGOS = [
   ["R39", "Otros riesgos", "26 · Otras", "Directa"],
 ];
 
+// Qué comprende cada riesgo del catálogo (redacción propia a partir de la metodología general de referencia)
+export const DEFINICIONES_RIESGOS = [
+  ["R01", "Caídas de personas a distinto nivel", "Pérdida de equilibrio con diferencia de altura. Especial atención a los trabajos en altura (más de 2 m, o más de 3,5 m al punto de operación con escalera de mano). Escaleras de mano o fijas, andamios, huecos sin proteger."],
+  ["R02", "Caídas de personas al mismo nivel", "Caídas en zonas de paso o superficies de trabajo y caídas sobre objetos. Falta de orden y limpieza, suelos resbaladizos o en mal estado."],
+  ["R03", "Caídas de objetos por desplome", "Desplome sin intervención humana de estanterías, apilamientos, muros o estructuras. Almacenamiento inadecuado."],
+  ["R04", "Caídas de objetos en manipulación", "Caída sobre la propia persona del objeto que transporta o eleva. Objetos pesados, voluminosos o con aristas."],
+  ["R05", "Caídas de objetos desprendidos", "Caída de objetos que manipulan otras personas o que se desprenden por deficiencias del centro."],
+  ["R06", "Pisadas sobre objetos", "Pisadas sobre objetos cortantes o punzantes en las zonas de trabajo."],
+  ["R07", "Golpes contra objetos inmóviles", "La persona se golpea o roza con un objeto que no se mueve. Espacio insuficiente, zonas sin delimitar."],
+  ["R08", "Golpes o contactos con elementos móviles de máquinas", "Golpes, cortes o abrasiones por partes móviles de máquinas, sin atrapamiento. Protecciones ausentes o anuladas."],
+  ["R09", "Golpes o cortes por objetos o herramientas", "Golpes, cortes y pinchazos con herramientas u objetos movidos por fuerzas distintas de la gravedad."],
+  ["R10", "Proyección de fragmentos o partículas", "Partículas, fragmentos o salpicaduras de líquidos proyectados sobre el cuerpo."],
+  ["R11", "Atrapamientos por o entre objetos", "Atrapamiento o aplastamiento de una parte del cuerpo entre piezas, materiales o elementos de máquinas."],
+  ["R12", "Atrapamientos por vuelco de máquinas o vehículos", "Aplastamiento por vuelco de carretillas, vehículos u otras máquinas."],
+  ["R13", "Contactos térmicos", "Contacto con superficies o productos muy calientes o muy fríos."],
+  ["R14", "Contactos eléctricos", "Contacto directo o indirecto con elementos en tensión. Cableado al descubierto, instalaciones defectuosas."],
+  ["R15", "Contactos con sustancias cáusticas o corrosivas", "Contacto con productos agresivos para la piel y las mucosas. Trasvases y mezclas inadecuados."],
+  ["R16", "Explosiones", "Aumento brusco de volumen, rotura de recipientes a presión o deflagración de atmósferas inflamables."],
+  ["R17", "Incendios", "Accidentes producidos por el fuego o sus consecuencias."],
+  ["R18", "Accidentes causados por seres vivos", "Daños causados directamente por personas o animales: mordeduras, picaduras, molestias."],
+  ["R19", "Agresiones físicas", "Uso intencionado de la fuerza contra la persona trabajadora."],
+  ["R20", "Atracos y robos con violencia", "Violencia o intimidación para apoderarse de bienes que custodia la persona trabajadora."],
+  ["R21", "Atropellos, golpes o choques con vehículos", "Atropellos o accidentes de vehículos dentro del recinto del centro."],
+  ["R22", "Accidentes de tráfico o en desplazamiento", "Accidentes en la vía pública durante la jornada o al ir y volver del trabajo (in itinere)."],
+  ["R23", "Estrés térmico", "Alteraciones por ambientes muy calurosos o fríos, o por trabajo físico intenso en condiciones desfavorables."],
+  ["R24", "Condiciones climatológicas adversas", "Lluvia, viento, calor, frío o radiación solar en desplazamientos o trabajos al exterior."],
+  ["R25", "Inhalación, contacto o ingestión de sustancias nocivas", "Efectos inmediatos de sustancias perjudiciales por fugas, derrames, trasvases o mezclas."],
+  ["R26", "Exposición a radiaciones", "Radiaciones ionizantes (rayos X) y no ionizantes (campos electromagnéticos, radiación óptica)."],
+  ["R27", "Exposición a agentes químicos", "Exposición corta y elevada o continuada a sustancias químicas que pueden causar enfermedad profesional."],
+  ["R28", "Exposición a agentes físicos", "Ruido, vibraciones y otras formas de energía que pueden causar enfermedad profesional."],
+  ["R29", "Exposición a agentes biológicos", "Microorganismos, cultivos celulares y endoparásitos que pueden causar infección, alergia o toxicidad. Contacto con pacientes, fluidos o residuos."],
+  ["R30", "Carga física", "Lesiones musculoesqueléticas por posturas forzadas, manipulación de cargas, movilización de personas, movimientos repetitivos o aplicación de fuerzas."],
+  ["R31", "Fatiga por uso de pantallas (PVD)", "Riesgos visuales, posturales y de carga mental por el uso de pantallas, también en el trabajo a distancia."],
+  ["R32", "Condiciones de iluminación", "Niveles de iluminación insuficientes para circular y trabajar con seguridad o que provocan fatiga visual."],
+  ["R33", "Condiciones termohigrométricas", "Temperatura, humedad, velocidad del aire y renovación de aire de los lugares de trabajo."],
+  ["R34", "Disconfort ambiental", "Incomodidad acústica, térmica o lumínica sin riesgo para la salud."],
+  ["R35", "Sobreesfuerzos vocales", "Trastornos de la voz por hablar de forma continuada, con intensidad o con ruido de fondo."],
+  ["R36", "Estrés laboral", "Desajuste entre las exigencias del trabajo y las capacidades o recursos de la persona: carga y ritmo, contenido, relaciones, rol, desarrollo."],
+  ["R37", "Fatiga por la ordenación del tiempo de trabajo", "Turnos, nocturnidad, prolongación de jornada o falta de descanso entre jornadas."],
+  ["R38", "Violencia en el trabajo", "Violencia física, psicológica o sexual, también en el ámbito digital, de terceros o entre personas de la organización."],
+  ["R39", "Otros riesgos", "Cualquier otro riesgo no recogido en los anteriores."],
+];
+
+export const TIPOS_MEDIDA = [
+  ["FOR", "Formación."],
+  ["INF", "Información."],
+  ["CP", "Control periódico: debe mantenerse en el tiempo."],
+  ["EPI", "Equipos de protección individual."],
+  ["RP", "Necesidad de recurso preventivo."],
+  ["PRO", "Procedimiento de trabajo."],
+  ["PA", "Requiere un estudio específico o presupuesto adicional."],
+];
+
+export const ENTIDADES = [
+  ["Lugar de trabajo", "Espacio delimitado cuyas condiciones afectan por igual a varios puestos, incluidos aseos, locales de descanso, primeros auxilios y comedores.", "Instalaciones y puestos."],
+  ["Instalación", "Servicio o suministro aneja al lugar de trabajo: electricidad, gas, calefacción, climatización, protección contra incendios.", "Lugares de trabajo."],
+  ["Puesto de trabajo", "Conjunto de tareas relacionadas que realizan una o varias personas, con o sin productos químicos, equipos y herramientas.", "Actividades, equipos y lugares de trabajo."],
+  ["Actividad", "Tarea común a varios puestos, como la limpieza, el uso de escalera de mano o la turnicidad.", "Puestos y equipos."],
+  ["Equipo de trabajo", "Cualquier máquina utilizada en el trabajo.", "Puestos y actividades."],
+];
+
+const marcas = (e) => [e.EM && "Embarazo", e.PR && "Parto reciente", e.LA && "Lactancia"].filter(Boolean).join(", ");
+
 // Mapa para que la vista resuelva tablas por nombre
 export const FUENTES = {
   CONSECUENCIAS: CONSECUENCIAS.map((c) => [`${c.nombre} (${c.codigo})`, c.descripcion, c.ejemplos]),
@@ -639,4 +932,27 @@ export const FUENTES = {
   ESTADOS_ACCION: ESTADOS_ACCION.map((e) => [e.nombre, e.descripcion]),
   ESPECIFICAS: ESPECIFICAS.map((e) => [e.ambito, e.cuando, e.referencia]),
   EQUIVALENCIA: EQUIVALENCIA_RIESGOS,
+  DEFINICIONES: DEFINICIONES_RIESGOS,
+  TIPOS_MEDIDA,
+  ENTIDADES,
+  ERE_ACCIONES: Object.values(ACCIONES_ERE).map((a) => [a.nombre, {
+    "No compatible: retirada del puesto o de la tarea": "La tarea no puede realizarse durante el embarazo o la lactancia: se retira o se cambia de puesto.",
+    "Limitar a partir de la semana indicada": "La tarea se limita desde la semana de gestación que indica la tabla según la exposición.",
+    "Adaptar el puesto": "Se adaptan las condiciones o el tiempo de trabajo.",
+    "Valoración individual (serología, medición o fichas de seguridad)": "Depende de un dato de la trabajadora o del puesto: estado inmune, medición o fichas de datos de seguridad.",
+    "Sin riesgo específico: medidas habituales": "No justifica la exclusión; se aplican las medidas habituales.",
+  }[a.nombre] ?? ""]),
+  ERE_DERIVACION: CONDICIONES_ERE.map((c) => [`${c.r} · ${c.riesgo}`, c.condicion, ACCIONES_ERE[c.accion].nombre, marcas(c)]),
+  ERE_PROHIBIDOS: [
+    ["Agentes físicos", "Radiaciones ionizantes; trabajos en atmósferas de sobrepresión elevada (locales a presión, submarinismo).", "—"],
+    ["Agentes biológicos", "Toxoplasma y virus de la rubeola, salvo inmunización suficiente.", "—"],
+    ["Agentes químicos", "Cancerígenos y mutágenos de categoría 1A y 1B; plomo y derivados absorbibles; sustancias H360D, H360F, H360FD, H360Fd y H360Df (antiguas R60 y R61).", "Cancerígenos y mutágenos de categoría 1A y 1B; plomo y derivados; sustancias H362 (antigua R64)."],
+    ["Condiciones de trabajo", "Trabajos de minería subterránea.", "Trabajos de minería subterránea."],
+  ],
+  ERE_CARGAS: TABLAS_ERE.cargas.filas,
+  ERE_PESOS: TABLAS_ERE.pesos.filas,
+  ERE_FLEXION: TABLAS_ERE.flexion.filas,
+  ERE_ESCALERAS: TABLAS_ERE.escaleras.filas,
+  ERE_BIPEDESTACION: TABLAS_ERE.bipedestacion.filas,
+  ERE_SEDESTACION: TABLAS_ERE.sedestacion.filas,
 };

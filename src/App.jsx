@@ -16,6 +16,7 @@ import GestorDocumental from './GestorDocumental'
 import Actualizar from './Actualizar'
 import MenuPrincipal from './MenuPrincipal'
 import Pendiente from './Pendiente'
+import EvaluacionEmbarazo from './EvaluacionEmbarazo'
 import AppCentro from './AppCentro'
 
 export default function App() {
@@ -62,13 +63,7 @@ export default function App() {
       <main className="contenido">
         {seccion === 'centros' && <Centros supabase={supabase} />}
         {seccion === 'evaluaciones' && <Evaluaciones supabase={supabase} onActualizar={() => setSeccion('actualizar')} />}
-        {seccion === 'ere' && (
-          <Pendiente
-            titulo="Evaluación de Riesgos Embarazadas (ERE)"
-            texto="Recogerá la evaluación de los riesgos para la trabajadora embarazada, que ha dado a luz recientemente o en periodo de lactancia, y el informe de adaptación del puesto."
-            necesita={['Marcar en cada riesgo del catálogo si puede afectar al embarazo o a la lactancia.', 'El modelo de informe que quieres emitir.']}
-          />
-        )}
+        {seccion === 'ere' && <EvaluacionEmbarazo supabase={supabase} />}
         {seccion === 'pap' && <PapLista supabase={supabase} />}
         {seccion === 'pac' && <PacLista supabase={supabase} />}
         {seccion === 'agresiones' && <Agresiones supabase={supabase} />}

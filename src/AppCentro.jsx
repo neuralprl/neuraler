@@ -7,6 +7,7 @@ import HojasEvaluacion from './HojasEvaluacion'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
 import Agresiones from './Agresiones'
+import EvaluacionEmbarazo from './EvaluacionEmbarazo'
 import GestorDocumental from './GestorDocumental'
 import { FormIncidencia } from './Pac'
 import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
@@ -243,6 +244,7 @@ function ElegirCentro({ centros, onElegir, titulo }) {
 const SECCIONES = [
   { id: 'panel', texto: 'Panel' },
   { id: 'evaluacion', texto: 'Evaluación de Riesgos' },
+  { id: 'ere', texto: 'ERE (embarazo y lactancia)' },
   { id: 'pap', texto: 'PAP' },
   { id: 'pac', texto: 'PAC' },
   { id: 'agresiones', texto: 'Registro de Agresiones' },
@@ -340,6 +342,7 @@ export default function AppCentro({ supabase, sesion }) {
 
             {seccion === 'pac' && (centro ? <PacCentro supabase={supabase} centroId={centro.id} /> : <ElegirCentro centros={centros} titulo="Planificación Acción Correctiva (PAC)" onElegir={setCentroSel} />)}
             {seccion === 'agresiones' && (centro ? <Agresiones supabase={supabase} centro={centro} /> : <ElegirCentro centros={centros} titulo="Registro de Agresiones" onElegir={setCentroSel} />)}
+            {seccion === 'ere' && <EvaluacionEmbarazo supabase={supabase} />}
             {seccion === 'ir' && <InformacionRiesgos supabase={supabase} />}
             {seccion === 'epis' && <HojasEvaluacion supabase={supabase} modo="epis" />}
             {seccion === 'form' && <HojasEvaluacion supabase={supabase} modo="formacion" />}

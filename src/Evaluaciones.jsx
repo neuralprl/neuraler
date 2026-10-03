@@ -9,6 +9,7 @@ import { BarraProgreso, CheckCentro, NuevaEvaluacionCentro, ResumenEvaluacionCen
 import { METODOLOGIA_VERSION } from './metodologiaContenido'
 import PapCentro from './PapCentro'
 import { sincronizarPAPCentro } from './papCentroDatos'
+import { descargarERE } from './ereDatos'
 
 // Uso: <Evaluaciones supabase={supabase} onActualizar={...} />
 // Flujo: lista de evaluaciones de centro -> nueva (elegir centro) -> lista de comprobación del centro
@@ -344,6 +345,7 @@ export default function Evaluaciones({ supabase, onActualizar }) {
         onPendiente={(ev) => cambiarPuesto(ev, { estado: 'pendiente', motivo_no_aplica: null }, `${ev.puestos?.nombre} vuelve a pendiente.`)}
         onAnadirFaltan={anadirFaltan}
         onPap={() => { setError(''); setVista('pap') }}
+        onERE={(ev) => con(() => descargarERE(supabase, { id: ev.id, fecha: ev.fecha, centro: evc.centros, puesto: ev.puestos }, 'word'))}
         onCerrar={() => cerrarCentro(true)} onReabrir={() => cerrarCentro(false)} onVolver={aLista} />
     )
   }
