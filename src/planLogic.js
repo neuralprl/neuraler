@@ -1,17 +1,23 @@
 // Reglas del plan de acción preventiva (PAP): plazos por prioridad, coste, fechas y textos de estado.
 // Funciones puras, sin red ni base de datos.
 
+import { NIVELES } from './metodologiaContenido.js'
+
 export const RESPONSABLES = ['Dirección del centro', 'Servicio de prevención']
 export const RESPONSABLE_DEFECTO = RESPONSABLES[0]
 export const COSTE_POR_DEFECTO = 'Medida incluida en el presupuesto del centro'
 
 // Plazo para ejecutar la acción según la valoración del riesgo (de más a menos urgente).
+// El texto del plazo es el de la metodología; la fecha por defecto se calcula con la regla numérica:
+//   Intolerable: inmediato · Importante: 1 mes como máximo (antes de iniciar el trabajo, si no se ha iniciado)
+//   Moderado: 6 meses · Tolerable: revisión anual (12 meses) · Trivial: sin plazo
+const textoPlazo = (codigo) => NIVELES.find((n) => n.codigo === codigo)?.plazo ?? ''
 export const PLAZO_POR_VR = {
-  IN: { etiqueta: 'Inmediata', dias: 0 },
-  IM: { etiqueta: '3 días', dias: 3 },
-  MO: { etiqueta: '1 mes', meses: 1 },
-  TO: { etiqueta: '3 meses', meses: 3 },
-  T: { etiqueta: '1 año', meses: 12 },
+  IN: { etiqueta: textoPlazo('IN'), dias: 0 },
+  IM: { etiqueta: textoPlazo('IM'), meses: 1 },
+  MO: { etiqueta: textoPlazo('MO'), meses: 6 },
+  TO: { etiqueta: textoPlazo('TO'), meses: 12 },
+  T: { etiqueta: textoPlazo('T'), sinPlazo: true },
 }
 
 export function fechaES(iso) {
@@ -41,8 +47,10 @@ export function sumarPlazo(fechaISO, { dias = 0, meses = 0 } = {}) {
   return new Date(Date.UTC(y, mo, d + dias)).toISOString().slice(0, 10)
 }
 
-export const plazoPorDefecto = (vr, fechaEvaluacion) =>
-  PLAZO_POR_VR[vr] ? sumarPlazo(fechaEvaluacion, PLAZO_POR_VR[vr]) : null
+export const plazoPorDefecto = (vr, fechaEvaluacion) => {
+  const p = PLAZO_POR_VR[vr]
+  return p && !p.sinPlazo ? sumarPlazo(fechaEvaluacion, p) : null
+}
 
 // Fecha límite para comprobar la eficacia: 12 meses desde la evaluación.
 export const limiteEficacia = (fechaEvaluacion) => sumarPlazo(fechaEvaluacion, { meses: 12 })
