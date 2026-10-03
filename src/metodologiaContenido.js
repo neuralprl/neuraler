@@ -5,7 +5,7 @@
 // cada evaluación guarda la versión vigente cuando se hizo.
 // =====================================================================
 
-export const METODOLOGIA_VERSION = "1.1";
+export const METODOLOGIA_VERSION = "1.3";
 export const METODOLOGIA_FECHA = "2026-10-03";
 
 // ---------- Escalas (fuente única: también las usa el cálculo) ----------
@@ -233,6 +233,63 @@ export const SECCIONES = [
         tipo: "p",
         texto:
           "Un riesgo nuevo recibe el siguiente código libre y su forma oficial. Cualquier alta, baja o cambio de nombre o de equivalencia del catálogo implica una nueva versión de esta metodología.",
+      },
+    ],
+  },
+  {
+    id: "actividades",
+    titulo: "Evaluación por actividades",
+    bloques: [
+      {
+        tipo: "p",
+        texto:
+          "El trabajo se evalúa por actividades. Una actividad es una tarea, un equipo o una condición de trabajo que se repite en varios puestos: por ejemplo, las tareas básicas de limpieza, el uso de equipos ofimáticos, el uso de escalera de mano, la turnicidad o la nocturnidad.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Cada actividad se evalúa una sola vez. Se describen sus tareas y los EPI que deben proporcionarse y, para cada riesgo del catálogo que trae consigo, se recoge la condición detectada, la probabilidad, las consecuencias, la valoración y las medidas preventivas y correctivas con su marco legal.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Cada puesto recoge las actividades que realiza y, además, sus riesgos propios, los que no dependen de ninguna actividad común. En el informe todos los riesgos aparecen integrados en el puesto, no en un capítulo aparte.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Si dos actividades de un mismo puesto traen el mismo riesgo con la misma condición, se recoge una sola vez. Si la condición es la misma y el nivel de riesgo difiere, prevalece el más alto y se suman las medidas.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Las actividades se revisan cuando cambian las tareas, los equipos o la normativa. Una evaluación ya entregada conserva la copia de lo evaluado y no cambia por revisar una actividad.",
+      },
+    ],
+  },
+  {
+    id: "puestos",
+    titulo: "Puestos de trabajo",
+    bloques: [
+      {
+        tipo: "p",
+        texto:
+          "La evaluación se realiza por puesto de trabajo. Cada puesto recoge las actividades que realiza y, además, sus riesgos propios. La evaluación del puesto es la suma de ambas partes.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Los puestos se definen por sus funciones. Los distintos títulos que reciben en cada centro las personas que hacen lo mismo, por ejemplo enfermero/a y enfermero/a especialista en salud mental, se asignan al puesto de la evaluación con el que coincidan sus funciones y exposiciones. Si un título no encaja con ningún puesto, se crea uno nuevo y se actualiza esta metodología.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Dos puestos solo se evalúan juntos cuando tienen las mismas funciones y las mismas actividades y riesgos propios. En ese caso el informe nombra ambos puestos. Si difieren en algo, se evalúan por separado.",
+      },
+      {
+        tipo: "p",
+        texto:
+          "Se evalúa por puesto, y no por grupos de puestos, por tres razones. Las actividades ya permiten escribir una vez lo que se repite en varios puestos, de modo que un grupo aportaría poco más. Los puestos que se reunirían en un mismo grupo difieren en sus exposiciones, por lo que habría que evaluar sus diferencias aparte. Y cada persona trabajadora recibe la información de su propio puesto, tal como describe su trabajo.",
       },
     ],
   },
