@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PlanPreventivo from './PlanPreventivo'
 import MetodologiaTab from './MetodologiaTab'
+import FuncionesPuestos from './FuncionesPuestos'
 import { FormIncidencia } from './Pac'
 import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
 import { descargar, filasPAC, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
@@ -255,6 +256,7 @@ export default function AppCentro({ supabase, sesion }) {
     { id: 'pap', texto: 'Plan de acción (PAP)' },
     { id: 'pac', texto: 'Visitas PAC' },
     { id: 'metodologia', texto: 'Metodología' },
+    { id: 'funciones', texto: 'Funciones de cada puesto' },
   ]
 
   return (
@@ -300,6 +302,7 @@ export default function AppCentro({ supabase, sesion }) {
             )}
             {seccion === 'pac' && <PacCentro supabase={supabase} centroId={sel.centro.id} />}
             {seccion === 'metodologia' && <MetodologiaTab />}
+            {seccion === 'funciones' && <FuncionesPuestos />}
           </>
         )}
       </main>
