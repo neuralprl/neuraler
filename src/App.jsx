@@ -7,6 +7,10 @@ import Pac from './Pac'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
 import Agresiones from './Agresiones'
+import EpisPuestos from './EpisPuestos'
+import InformacionRiesgos from './InformacionRiesgos'
+import GestorDocumental from './GestorDocumental'
+import Pendiente from './Pendiente'
 import AppCentro from './AppCentro'
 import ImportarDatos from './ImportarDatos'
 
@@ -18,6 +22,11 @@ const SECCIONES = [
   { id: 'metodologia', texto: 'Metodología' },
   { id: 'funciones', texto: 'Funciones de cada puesto' },
   { id: 'importar', texto: 'Importar datos' },
+  { id: 'epis', texto: 'EPIs' },
+  { id: 'ir', texto: 'IR' },
+  { id: 'for', texto: 'FOR' },
+  { id: 'ere', texto: 'ERE' },
+  { id: 'gestor', texto: 'Gestor documental' },
 ]
 
 export default function App() {
@@ -82,6 +91,23 @@ export default function App() {
         {seccion === 'metodologia' && <MetodologiaTab />}
         {seccion === 'funciones' && <FuncionesPuestos />}
         {seccion === 'importar' && <ImportarDatos supabase={supabase} />}
+        {seccion === 'epis' && <EpisPuestos />}
+        {seccion === 'ir' && <InformacionRiesgos supabase={supabase} />}
+        {seccion === 'for' && (
+          <Pendiente
+            titulo="Formación (FOR)"
+            texto="Recogerá el contenido formativo de cada puesto: los temas que hay que impartir según sus actividades y riesgos, para dejar constancia de la formación recibida."
+            necesita={['La hoja de formación por puesto del programa de Excel (%FORM), o confirmar que el contenido salga de las medidas de formación de cada actividad.']}
+          />
+        )}
+        {seccion === 'ere' && (
+          <Pendiente
+            titulo="Embarazo y lactancia (ERE)"
+            texto="Recogerá la evaluación de los riesgos para la trabajadora embarazada, que ha dado a luz recientemente o en periodo de lactancia, y el informe de adaptación del puesto."
+            necesita={['Marcar en cada riesgo del catálogo si puede afectar al embarazo o a la lactancia.', 'El modelo de informe que quieres emitir.']}
+          />
+        )}
+        {seccion === 'gestor' && <GestorDocumental supabase={supabase} />}
       </main>
     </div>
   )

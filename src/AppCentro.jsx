@@ -3,6 +3,7 @@ import PlanPreventivo from './PlanPreventivo'
 import MetodologiaTab from './MetodologiaTab'
 import FuncionesPuestos from './FuncionesPuestos'
 import Agresiones from './Agresiones'
+import GestorDocumental from './GestorDocumental'
 import { FormIncidencia } from './Pac'
 import { COLOR_VR, ETIQUETA_VR, ordenarFilas, vrDe } from './evalLogic'
 import { descargar, filasPAC, htmlIR, imprimir, nombreArchivo, wordIR } from './documentos'
@@ -259,6 +260,7 @@ export default function AppCentro({ supabase, sesion }) {
     { id: 'agresiones', texto: 'Registro de agresiones' },
     { id: 'metodologia', texto: 'Metodología' },
     { id: 'funciones', texto: 'Funciones de cada puesto' },
+    { id: 'gestor', texto: 'Gestor documental' },
   ]
 
   return (
@@ -306,6 +308,7 @@ export default function AppCentro({ supabase, sesion }) {
             {seccion === 'agresiones' && <Agresiones supabase={supabase} centro={sel.centro} />}
             {seccion === 'metodologia' && <MetodologiaTab />}
             {seccion === 'funciones' && <FuncionesPuestos />}
+            {seccion === 'gestor' && <GestorDocumental supabase={supabase} soloLectura />}
           </>
         )}
       </main>

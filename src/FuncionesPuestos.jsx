@@ -49,10 +49,11 @@ function Condicion({ c }) {
             {m.tipo && <span className={`fun-tipo fun-tipo-${m.tipo}`}>{m.tipo === "P" ? "Preventiva" : "Correctiva"}</span>}
             {m.nueva && <span className="fun-tipo fun-tipo-nueva">Medida nueva</span>}
             {m.t}
-            {(m.legal || m.id) && (
+            {(m.legal || m.id || (m.u != null && c.np > 1)) && (
               <small>
                 {m.legal ? ` (${m.legal})` : ""}
                 {m.id ? ` · ${m.id}` : ""}
+                {m.u != null && c.np > 1 ? ` · usada en ${m.u} de ${c.np} puestos` : ""}
               </small>
             )}
           </li>
