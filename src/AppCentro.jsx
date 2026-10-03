@@ -313,18 +313,25 @@ export default function AppCentro({ supabase, sesion }) {
             {seccion === 'evaluacion' && (evalElegida
               ? (
                 <>
-                  {evals.length > 1 && <p><button className="secundario" onClick={() => setEvalSel(null)}>Cambiar de evaluación</button></p>}
+                  {evals.length > 1 && <p><button className="secundario" onClick={() => setEvalSel(null)}>Ver otro puesto</button></p>}
                   <VistaEvaluacion supabase={supabase} evaluacion={evalElegida} />
                 </>
               )
               : (
                 <div style={{ textAlign: 'left' }}>
-                  <h2>Tus evaluaciones</h2>
-                  {evals.map((e) => (
-                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
-                      <span>{e.centro?.nombre} · {e.puesto?.nombre} · {fechaES(e.fecha)}</span>
-                      <button className="secundario" onClick={() => setEvalSel(e.id)}>Abrir</button>
-                    </div>
+                  <h2>Evaluación de riesgos por puesto</h2>
+                  {centros.map((c) => (
+                    <section key={c.id} style={{ marginBottom: 16 }}>
+                      {centros.length > 1 && <h3 style={{ margin: '8px 0 4px' }}>{c.codigo} · {c.nombre}</h3>}
+                      {evals.filter((e) => e.centro?.id === c.id)
+                        .sort((a, b) => (a.puesto?.nombre ?? '').localeCompare(b.puesto?.nombre ?? '', 'es'))
+                        .map((e) => (
+                          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #e5e5e5' }}>
+                            <span>{e.puesto?.nombre} <small style={{ opacity: 0.65 }}>· {e.estado === 'cerrada' ? 'evaluado' : 'en curso'} · {fechaES(e.fecha)}</small></span>
+                            <button className="secundario" onClick={() => setEvalSel(e.id)}>Abrir</button>
+                          </div>
+                        ))}
+                    </section>
                   ))}
                 </div>
               ))}

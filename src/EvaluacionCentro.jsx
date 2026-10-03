@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import AccesoEvaluacion from './AccesoEvaluacion'
 import {
   COLOR_ESTADO_PUESTO, ESTADOS_PUESTO, guardarCheck, problemasCierre, progresoCentro, respuestasDesdeCheck,
 } from './evalCentroLogic'
@@ -97,7 +98,7 @@ export function NuevaEvaluacionCentro({ supabase, enCurso, onContinuar, onVolver
 // ---------------------------------------------------------------------
 // Panel de la evaluación del centro: check, puestos y cierre.
 export function ResumenEvaluacionCentro({
-  evc, evals, faltan, mensaje, error, trabajando,
+  supabase, evc, evals, faltan, mensaje, error, trabajando,
   onCheck, onEvaluar, onNoAplica, onPendiente, onAnadirFaltan, onCerrar, onReabrir, onVolver,
 }) {
   const [motivo, setMotivo] = useState({ id: null, texto: '' })
@@ -201,6 +202,10 @@ export function ResumenEvaluacionCentro({
         )}
         {' '}<button className="secundario" onClick={onVolver} disabled={trabajando}>Volver a la lista</button>
       </section>
+
+      <div style={{ marginTop: 28 }}>
+        <AccesoEvaluacion supabase={supabase} evaluacionCentro={evc} resaltar={cerrada} />
+      </div>
     </div>
   )
 }

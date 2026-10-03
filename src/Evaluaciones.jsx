@@ -325,7 +325,7 @@ export default function Evaluaciones({ supabase, onActualizar }) {
   }
   if (vista === 'centro' && evc) {
     return (
-      <ResumenEvaluacionCentro evc={evc} evals={evals} faltan={faltan} mensaje={mensaje} error={error} trabajando={trabajando}
+      <ResumenEvaluacionCentro supabase={supabase} evc={evc} evals={evals} faltan={faltan} mensaje={mensaje} error={error} trabajando={trabajando}
         onCheck={() => con(() => prepararCheck())}
         onEvaluar={evaluarPuesto}
         onNoAplica={(ev, motivo) => cambiarPuesto(ev, { estado: 'no_aplica', motivo_no_aplica: motivo.trim() }, `${ev.puestos?.nombre}: no aplica.`)}
